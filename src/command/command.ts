@@ -3,7 +3,7 @@ import type { CommandContext, ExecResult } from "./types.ts";
 import type { OptionBuilder } from "./builders/option.ts";
 import type { FlagBuilder } from "./builders/flag.ts";
 import type { ArgBuilder } from "./builders/arg.ts";
-import { parseArgs } from "./parser.ts";
+import { parseArgs, camelToKebab } from "./parser.ts";
 import { generateHelp } from "./help.ts";
 import { formatErrors, findSuggestions } from "./errors.ts";
 
@@ -186,6 +186,135 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
   /** All options available to this command (inherited + own) */
   get allOptions(): OptionsSchema {
     return { ...this.inheritedOptions, ...this.options };
+  }
+
+  // --------------------------------------------------------------------------
+  // Programmatic invocation
+  // --------------------------------------------------------------------------
+
+  /**
+   * Serialize a typed args object into CLI tokens.
+   *
+   * Produces tokens that, when parsed, reproduce the given args.
+   * Useful for building commands to pass to `execute()` or composing
+   * with `fullPath` for string-based execution.
+   *
+   * Only explicitly-provided values are serialized — omit a key to let
+   * the parser apply its default or env fallback as usual.
+   *
+   * @example
+   * ```ts
+   * const tokens = serve.toTokens({ port: 8080, entry: "app.ts" });
+   * await cli.execute(["serve", ...tokens], ctx);
+   * ```
+   */
+  toTokens(
+    args: Partial<Prettify<InferOptionsFromInput<TAccOpts> & InferArgsFromInput<TAccArgs>>>,
+  ): string[] {
+    const tokens: string[] = [];
+    const allOpts = this.allOptions;
+    const input = args as Record<string, unknown>;
+
+    // Options and flags
+    for (const [key, def] of Object.entries(allOpts)) {
+      const value = input[key];
+      const kebab = camelToKebab(key);
+
+      if (def._kind === "flag") {
+        if (value === true) {
+          tokens.push(`--${kebab}`);
+        } else if (value === false && def.default === true) {
+          // Only emit --no-<flag> when explicitly negating a default-true flag
+          tokens.push(`--no-${kebab}`);
+        }
+      } else if (def._kind === "option") {
+        if (value !== undefined) {
+          tokens.push(`--${kebab}`, String(value));
+        }
+      }
+    }
+
+    // Positional args (in schema order)
+    for (const argDef of this.args) {
+      const argName = argDef.name ?? "arg";
+      const value = input[argName];
+      if (value === undefined) continue;
+
+      if (argDef.variadic && Array.isArray(value)) {
+        for (const v of value) {
+          tokens.push(String(v));
+        }
+      } else {
+        tokens.push(String(value));
+      }
+    }
+
+    return tokens;
+  }
+
+  /**
+   * Call this command's handler directly with typed args.
+   *
+   * Applies defaults for any omitted keys and validates required fields,
+   * then invokes the handler without parsing CLI tokens. This gives you
+   * type-safe inter-command calls without serialization overhead.
+   *
+   * @example
+   * ```ts
+   * const result = await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
+   * ```
+   */
+  async invoke(
+    args: Partial<Prettify<InferOptionsFromInput<TAccOpts> & InferArgsFromInput<TAccArgs>>>,
+    ctx: CommandContext,
+  ): Promise<ExecResult> {
+    if (!this.handler) {
+      return {
+        stdout: "",
+        stderr: `Command "${this.fullPath}" has no handler`,
+        exitCode: 1,
+      };
+    }
+
+    const resolved: Record<string, unknown> = { ...(args as Record<string, unknown>) };
+    const allOpts = this.allOptions;
+
+    // Apply defaults for missing options/flags
+    for (const [key, def] of Object.entries(allOpts)) {
+      if (resolved[key] === undefined) {
+        if (def._kind === "flag") {
+          resolved[key] = def.default ?? false;
+        } else if (def._kind === "option") {
+          if (def.default !== undefined) {
+            resolved[key] = def.default;
+          } else if (def.required) {
+            return {
+              stdout: "",
+              stderr: `Missing required option "${key}"`,
+              exitCode: 1,
+            };
+          }
+        }
+      }
+    }
+
+    // Apply defaults for missing positional args
+    for (const argDef of this.args) {
+      const argName = argDef.name ?? "arg";
+      if (resolved[argName] === undefined) {
+        if (argDef.default !== undefined) {
+          resolved[argName] = argDef.default;
+        } else if (argDef.required) {
+          return {
+            stdout: "",
+            stderr: `Missing required arg "${argName}"`,
+            exitCode: 1,
+          };
+        }
+      }
+    }
+
+    return this.handler(resolved, ctx);
   }
 
   // --------------------------------------------------------------------------
