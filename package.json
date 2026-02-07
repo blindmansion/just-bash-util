@@ -4,6 +4,16 @@
   "description": "CLI command framework, config file discovery, and path utilities for just-bash",
   "type": "module",
   "license": "MIT",
+  "author": "blindmansion",
+  "keywords": [
+    "cli",
+    "command",
+    "config",
+    "path",
+    "just-bash",
+    "parser",
+    "framework"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",

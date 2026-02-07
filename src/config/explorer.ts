@@ -93,9 +93,10 @@ function defaultSearchPlaces(name: string): string[] {
 }
 
 function buildLoaders(jsonc: boolean): Record<string, Loader> {
+  const parser = jsonc ? jsoncLoader : jsonLoader;
   return {
-    ".json": jsonc ? jsoncLoader : jsonLoader,
-    "noExt": jsonLoader,
+    ".json": parser,
+    "noExt": parser,
   };
 }
 
