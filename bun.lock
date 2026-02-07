@@ -6,11 +6,11 @@
       "name": "just-util",
       "devDependencies": {
         "@types/bun": "latest",
+        "typescript": "^5",
         "vitest": "^4.0.18",
       },
       "peerDependencies": {
         "just-bash": "^2.9.6",
-        "typescript": "^5",
       },
     },
   },
