@@ -2,9 +2,9 @@
 // Value type mappings
 // ============================================================================
 
-import type { CommandContext, ExecResult, IFileSystem } from "just-bash";
+import type { CommandContext, ExecResult } from "just-bash";
 
-export type { CommandContext, ExecResult, IFileSystem };
+export type { CommandContext, ExecResult };
 
 export type TypeMap = {
   string: string;
@@ -23,7 +23,6 @@ export interface OptionDef<TOut = unknown> {
   /** Phantom field — only exists at the type level for inference */
   readonly _type: TOut;
   readonly type: TypeName;
-  readonly name?: string;
   readonly description?: string;
   readonly short?: string;
   readonly default?: unknown;
@@ -50,8 +49,6 @@ export interface ArgDef<TOut = unknown> {
   readonly default?: unknown;
 }
 
-export type AnyDef = OptionDef<any> | FlagDef | ArgDef<any>;
-
 // ============================================================================
 // Schema shape types
 // ============================================================================
@@ -60,40 +57,19 @@ export type OptionsSchema = Record<string, OptionDef<any> | FlagDef>;
 export type ArgsSchema = readonly ArgDef<any>[];
 
 // ============================================================================
-// Type inference utilities
+// Handler types
 // ============================================================================
 
-/** Infer the value type of a single option or flag */
-export type InferOptionType<T> =
-  T extends OptionDef<infer V> ? V
-  : T extends FlagDef ? boolean
-  : never;
-
-/** Infer the value type of a single positional arg */
-export type InferArgType<T> =
-  T extends ArgDef<infer V> ? V : never;
-
-/** Infer the full options object from an options schema */
-export type InferOptions<T extends OptionsSchema> = {
-  [K in keyof T]: InferOptionType<T[K]>;
-};
-
-/** Infer positional args as a named object from a tuple of ArgDefs */
-export type InferArgs<T extends ArgsSchema> = {
-  [K in keyof T as T[K] extends ArgDef<any> & { readonly name: string }
-  ? T[K]["name"]
-  : never]: T[K] extends ArgDef<infer V> ? V : never;
-};
-
-// ============================================================================
-// Context & result types
-// ============================================================================
-
-
+/** Metadata passed alongside parsed args to a command handler. */
+export interface HandlerMeta {
+  /** Tokens that appeared after `--` in the CLI input. */
+  readonly passthrough: readonly string[];
+}
 
 export type Handler<TArgs extends object = Record<string, unknown>> = (
   args: TArgs,
   ctx: CommandContext,
+  meta: HandlerMeta,
 ) => ExecResult | Promise<ExecResult>;
 
 // ============================================================================

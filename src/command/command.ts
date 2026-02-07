@@ -1,4 +1,4 @@
-import type { OptionsSchema, ArgsSchema, Handler } from "./types.ts";
+import type { OptionsSchema, ArgsSchema, Handler, HandlerMeta } from "./types.ts";
 import type { CommandContext, ExecResult } from "./types.ts";
 import type { OptionBuilder } from "./builders/option.ts";
 import type { FlagBuilder } from "./builders/flag.ts";
@@ -314,7 +314,7 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
       }
     }
 
-    return this.handler(resolved, ctx);
+    return this.handler(resolved, ctx, { passthrough: [] });
   }
 
   // --------------------------------------------------------------------------
@@ -351,7 +351,7 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
       if (!parsed.ok) {
         return { stdout: "", stderr: formatErrors(parsed.errors), exitCode: 1 };
       }
-      return this.handler(parsed.args, ctx);
+      return this.handler(parsed.args, ctx, { passthrough: parsed.passthrough });
     }
 
     // No handler — check for unknown subcommand

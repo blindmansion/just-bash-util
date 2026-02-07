@@ -13,25 +13,18 @@ export type { ParseArgsResult } from "./parser.ts";
 export { generateHelp } from "./help.ts";
 
 // Error formatting
-export { formatError, formatErrors, findSuggestions, levenshtein } from "./errors.ts";
+export { formatError, formatErrors } from "./errors.ts";
 
 // Types
 export type {
   OptionDef,
   FlagDef,
   ArgDef,
-  AnyDef,
-  TypeMap,
-  TypeName,
   OptionsSchema,
   ArgsSchema,
-  InferOptionType,
-  InferArgType,
-  InferOptions,
-  InferArgs,
   Handler,
+  HandlerMeta,
   ParseError,
   CommandContext,
   ExecResult,
-  IFileSystem,
 } from "./types.ts";

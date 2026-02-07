@@ -1,10 +1,38 @@
 {
   "name": "just-util",
-  "module": "index.ts",
+  "version": "0.1.0",
+  "description": "CLI command framework, config file discovery, and path utilities for just-bash",
   "type": "module",
-  "private": true,
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./command": {
+      "import": "./dist/command/index.js",
+      "types": "./dist/command/index.d.ts"
+    },
+    "./config": {
+      "import": "./dist/config/index.js",
+      "types": "./dist/config/index.d.ts"
+    },
+    "./path": {
+      "import": "./dist/path/index.js",
+      "types": "./dist/path/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "prepublishOnly": "tsup"
+  },
   "devDependencies": {
     "@types/bun": "latest",
+    "tsup": "^8.5.1",
     "typescript": "^5",
     "vitest": "^4.0.18"
   },

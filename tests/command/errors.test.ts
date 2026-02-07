@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { levenshtein, findSuggestions, formatError, formatErrors, type ParseError } from "../../src/command";
+import { formatError, formatErrors, type ParseError } from "../../src/command";
+import { levenshtein, findSuggestions } from "../../src/command/errors.ts";
 
 // ============================================================================
 // Levenshtein distance
