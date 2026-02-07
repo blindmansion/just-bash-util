@@ -1,13 +1,13 @@
 import type { OptionDef, TypeName, TypeMap } from "../types.ts";
 
 // ============================================================================
-// OptionBuilder — fluent class, single TOut type parameter
+// OptionBuilder — fluent class with two type parameters
 //
-// Each method either returns `this` (metadata-only) or a new builder with
-// a narrowed TOut (e.g. .required() removes undefined).
+// TOut tracks the value type. THasDefault tracks whether a default was set,
+// enabling the invoke() signature to distinguish required vs defaulted options.
 // ============================================================================
 
-export class OptionBuilder<TOut> {
+export class OptionBuilder<TOut, THasDefault extends boolean = false> {
   /** @internal */
   readonly _def: OptionDef<TOut>;
 
@@ -16,18 +16,18 @@ export class OptionBuilder<TOut> {
   }
 
   /** Add a description */
-  describe(text: string): OptionBuilder<TOut> {
-    return new OptionBuilder({ ...this._def, description: text });
+  describe(text: string): OptionBuilder<TOut, THasDefault> {
+    return new OptionBuilder({ ...this._def, description: text }) as OptionBuilder<TOut, THasDefault>;
   }
 
   /** Set a short alias (single character) */
-  short(alias: string): OptionBuilder<TOut> {
-    return new OptionBuilder({ ...this._def, short: alias });
+  short(alias: string): OptionBuilder<TOut, THasDefault> {
+    return new OptionBuilder({ ...this._def, short: alias }) as OptionBuilder<TOut, THasDefault>;
   }
 
   /** Set an environment variable fallback */
-  env(name: string): OptionBuilder<TOut> {
-    return new OptionBuilder({ ...this._def, env: name });
+  env(name: string): OptionBuilder<TOut, THasDefault> {
+    return new OptionBuilder({ ...this._def, env: name }) as OptionBuilder<TOut, THasDefault>;
   }
 
   /** Mark as required — removes undefined from TOut */
@@ -39,11 +39,11 @@ export class OptionBuilder<TOut> {
   }
 
   /** Set a default value — removes undefined from TOut */
-  default(value: Exclude<TOut, undefined>): OptionBuilder<Exclude<TOut, undefined>> {
+  default(value: Exclude<TOut, undefined>): OptionBuilder<Exclude<TOut, undefined>, true> {
     return new OptionBuilder({
       ...this._def,
       default: value,
-    } as unknown as OptionDef<Exclude<TOut, undefined>>);
+    } as unknown as OptionDef<Exclude<TOut, undefined>>) as unknown as OptionBuilder<Exclude<TOut, undefined>, true>;
   }
 
 }

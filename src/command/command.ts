@@ -15,25 +15,53 @@ import { formatErrors, findSuggestions } from "./errors.ts";
 type Prettify<T> = { [K in keyof T as string extends K ? never : K]: T[K] } & {};
 
 /** Builder input types — what the user passes in config */
-type OptionInput = OptionBuilder<any> | FlagBuilder;
+type OptionInput = OptionBuilder<any, any> | FlagBuilder;
 type OptionsInput = Record<string, OptionInput>;
-type ArgsInput = readonly ArgBuilder<any, any>[];
+type ArgsInput = readonly ArgBuilder<any, any, any>[];
 
-/** Infer the value types from option builder instances */
+/** Infer the value types from option builder instances (handler signature) */
 type InferOptionsFromInput<T extends OptionsInput> = {
-  [K in keyof T]: T[K] extends OptionBuilder<infer V>
+  [K in keyof T]: T[K] extends OptionBuilder<infer V, any>
   ? V
   : T[K] extends FlagBuilder
   ? boolean
   : never;
 };
 
-/** Infer positional arg types from arg builder instances */
+/** Infer positional arg types from arg builder instances (handler signature) */
 type InferArgsFromInput<T extends ArgsInput> = {
   [I in keyof T & `${number}` as
-  T[I] extends ArgBuilder<any, infer N extends string> ? N : never
-  ]: T[I] extends ArgBuilder<infer V, any> ? V : never;
+  T[I] extends ArgBuilder<any, infer N extends string, any> ? N : never
+  ]: T[I] extends ArgBuilder<infer V, any, any> ? V : never;
 };
+
+/** Infer invoke() options: required options mandatory, defaulted/optional/flags optional */
+type InferInvokeOptions<T extends OptionsInput> =
+  & { [K in keyof T as
+      T[K] extends FlagBuilder ? never
+      : T[K] extends OptionBuilder<infer V, infer D>
+        ? [D] extends [true] ? never : undefined extends V ? never : K
+        : never
+    ]: T[K] extends OptionBuilder<infer V, any> ? V : never }
+  & { [K in keyof T as
+      T[K] extends FlagBuilder ? K
+      : T[K] extends OptionBuilder<infer V, infer D>
+        ? [D] extends [true] ? K : undefined extends V ? K : never
+        : never
+    ]?: T[K] extends OptionBuilder<infer V, any> ? V : T[K] extends FlagBuilder ? boolean : never };
+
+/** Infer invoke() args: required args mandatory, defaulted/optional args optional */
+type InferInvokeArgs<T extends ArgsInput> =
+  & { [I in keyof T & `${number}` as
+      T[I] extends ArgBuilder<infer _V, infer N extends string, infer D>
+        ? [D] extends [true] ? never : T[I] extends ArgBuilder<infer V, any, any> ? undefined extends V ? never : N : never
+        : never
+    ]: T[I] extends ArgBuilder<infer V, any, any> ? V : never }
+  & { [I in keyof T & `${number}` as
+      T[I] extends ArgBuilder<infer _V, infer N extends string, infer D>
+        ? [D] extends [true] ? N : T[I] extends ArgBuilder<infer V, any, any> ? undefined extends V ? N : never : never
+        : never
+    ]?: T[I] extends ArgBuilder<infer V, any, any> ? V : never };
 
 // ============================================================================
 // Runtime helpers — extract defs from builder instances
@@ -159,6 +187,19 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
     return segments.join(" ");
   }
 
+  /**
+   * Return a plain `{ name, execute }` object compatible with just-bash's
+   * `CustomCommand` interface, with `execute` pre-bound to this command tree.
+   *
+   * @example
+   * ```ts
+   * const bash = new Bash({ customCommands: [mycli.toCommand()] });
+   * ```
+   */
+  toCommand(): { name: string; execute: (args: string[], ctx: CommandContext) => Promise<ExecResult> } {
+    return { name: this.name, execute: this.execute.bind(this) };
+  }
+
   /** Options inherited from ancestor commands */
   get inheritedOptions(): OptionsSchema {
     const inherited: OptionsSchema = {};
@@ -255,9 +296,9 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
   /**
    * Call this command's handler directly with typed args.
    *
-   * Applies defaults for any omitted keys and validates required fields,
-   * then invokes the handler without parsing CLI tokens. This gives you
-   * type-safe inter-command calls without serialization overhead.
+   * Required options (no default) and required positional args must be
+   * provided. Options with defaults, flags, and optional args can be
+   * omitted — invoke applies their defaults automatically.
    *
    * @example
    * ```ts
@@ -265,7 +306,7 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
    * ```
    */
   async invoke(
-    args: Partial<Prettify<InferOptionsFromInput<TAccOpts> & InferArgsFromInput<TAccArgs>>>,
+    args: Prettify<InferInvokeOptions<TAccOpts> & InferInvokeArgs<TAccArgs>>,
     ctx: CommandContext,
   ): Promise<ExecResult> {
     if (!this.handler) {

@@ -1,12 +1,14 @@
 /**
- * Type-level tests for the Infer utility type.
+ * Type-level tests for the Infer utility type and invoke() signature.
  *
  * These tests verify that `Infer<typeof cmd>` correctly extracts the
- * handler args type from a Command instance.
+ * handler args type from a Command instance, and that invoke() requires
+ * the right fields (required options/args mandatory, defaults optional).
  */
 
 import { describe, expectTypeOf, test } from "vitest";
 import { o, f, a, command, type Infer } from "../../src/command";
+import type { CommandContext } from "../../src/command";
 
 describe("Infer", () => {
   test("infers options and args from a root command", () => {
@@ -209,5 +211,98 @@ describe("Infer", () => {
       connectionString: string | undefined;
       schema: string;
     }>();
+  });
+});
+
+// ============================================================================
+// invoke() signature — required fields mandatory, defaulted/optional fields optional
+// ============================================================================
+
+describe("invoke() signature", () => {
+  test("requires required options, makes defaulted/optional/flags optional", () => {
+    const deploy = command("deploy", {
+      description: "Deploy",
+      options: {
+        target: o.string().required(),
+        replicas: o.number().default(1),
+        env: o.string(),
+        dryRun: f(),
+      },
+      handler: (args) => ({ stdout: "", stderr: "", exitCode: 0 }),
+    });
+
+    // First arg to invoke
+    type InvokeArgs = Parameters<typeof deploy.invoke>[0];
+
+    // target is required (no default, no undefined) → mandatory
+    expectTypeOf<InvokeArgs>().toExtend<{ target: string }>();
+
+    // replicas has default → optional
+    // env is string | undefined → optional
+    // dryRun is a flag → optional
+    expectTypeOf<{ target: "prod" }>().toExtend<InvokeArgs>();
+  });
+
+  test("requires required positional args, makes defaulted/optional args optional", () => {
+    const cmd = command("cmd", {
+      description: "Test",
+      args: [
+        a.string().name("source"),
+        a.string().name("dest").optional(),
+        a.string().name("mode").default("copy"),
+      ] as const,
+      handler: (args) => ({ stdout: "", stderr: "", exitCode: 0 }),
+    });
+
+    type InvokeArgs = Parameters<typeof cmd.invoke>[0];
+
+    // source is required → mandatory
+    expectTypeOf<InvokeArgs>().toExtend<{ source: string }>();
+
+    // dest is optional, mode has default → both optional
+    expectTypeOf<{ source: "a.txt" }>().toExtend<InvokeArgs>();
+  });
+
+  test("inherited required options are required in invoke", () => {
+    const root = command("root", { description: "Root" });
+
+    const storage = root.command("storage", {
+      description: "Storage",
+      options: {
+        bucket: o.string().required(),
+        region: o.string().default("us-east-1"),
+      },
+    });
+
+    const upload = storage.command("upload", {
+      description: "Upload",
+      args: [a.string().name("source")] as const,
+      handler: (args) => ({ stdout: "", stderr: "", exitCode: 0 }),
+    });
+
+    type InvokeArgs = Parameters<typeof upload.invoke>[0];
+
+    // bucket (inherited, required) and source (arg, required) → mandatory
+    expectTypeOf<InvokeArgs>().toExtend<{ bucket: string; source: string }>();
+
+    // region has default → optional
+    expectTypeOf<{ bucket: "bkt", source: "file.txt" }>().toExtend<InvokeArgs>();
+  });
+
+  test("empty invoke args when all fields have defaults or are optional", () => {
+    const cmd = command("cmd", {
+      description: "Test",
+      options: {
+        port: o.number().default(3000),
+        verbose: f(),
+        host: o.string(),
+      },
+      handler: (args) => ({ stdout: "", stderr: "", exitCode: 0 }),
+    });
+
+    type InvokeArgs = Parameters<typeof cmd.invoke>[0];
+
+    // All optional — empty object should be valid
+    expectTypeOf<{}>().toExtend<InvokeArgs>();
   });
 });

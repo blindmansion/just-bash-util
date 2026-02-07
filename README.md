@@ -54,6 +54,14 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - `--` passthrough separator
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
+- One-line integration with just-bash:
+
+```ts
+import { Bash } from "just-bash";
+
+const bash = new Bash({ customCommands: [cli.toCommand()] });
+await bash.exec("mycli serve app.ts -p 8080");
+```
 
 ### `just-util/config` — Config file discovery
 
