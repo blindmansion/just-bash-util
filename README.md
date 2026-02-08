@@ -67,6 +67,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - `--` passthrough separator
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
+- Automatic error handling — thrown errors in handlers are caught and returned as clean `ExecResult` with `exitCode: 1`
 
 ### `just-bash-util/config` — Config file discovery
 
@@ -75,7 +76,7 @@ Cosmiconfig-style config search that walks up the directory tree, trying convent
 ```ts
 import { searchConfig } from "just-bash-util/config";
 
-// Walks up from cwd trying: package.json#myapp, .myapprc, .myapprc.json, myapp.config.json
+// Walks up from cwd trying: .myapprc, .myapprc.json, myapp.config.json
 const result = await searchConfig(ctx, { name: "myapp" });
 if (result) {
   result.config; // parsed config object
@@ -83,11 +84,14 @@ if (result) {
   result.isEmpty; // true if config is null/undefined/empty object
 }
 
-// Customize search places, starting directory, or add custom loaders
+// Find nearest package.json and return its full contents
+const pkg = await searchConfig(ctx, { name: "package", searchPlaces: ["package.json"] });
+
+// Extract a tool-specific property from package.json
 const result2 = await searchConfig(ctx, {
   name: "myapp",
-  from: "/specific/start/dir",
-  searchPlaces: [".myapprc.json", "myapp.config.json"],
+  searchPlaces: ["package.json", ".myapprc", ".myapprc.json"],
+  packageJsonProp: "myapp",
 });
 ```
 
@@ -126,12 +130,16 @@ import {
   relative,
   parse,
   normalize,
+  parsePackageSpecifier,
 } from "just-bash-util/path";
 
 join("src", "utils", "index.ts"); // "src/utils/index.ts"
 dirname("/project/src/index.ts"); // "/project/src"
 basename("src/index.ts", ".ts"); // "index"
 relative("/a/b/c", "/a/d"); // "../../d"
+
+parsePackageSpecifier("@vue/shared/dist"); // { name: "@vue/shared", subpath: "./dist" }
+parsePackageSpecifier("lodash/merge"); // { name: "lodash", subpath: "./merge" }
 ```
 
 ## Peer dependencies

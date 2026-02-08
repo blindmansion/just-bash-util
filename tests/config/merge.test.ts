@@ -126,13 +126,27 @@ describe("searchConfig merge", () => {
 describe("searchConfig merge per-level priority", () => {
   it("takes only the first match per directory level", async () => {
     const ctx = createCtx({
-      "/project/package.json": JSON.stringify({ myapp: { from: "pkg" } }),
       "/project/.myapprc": '{"from": "rc"}',
       "/project/.myapprc.json": '{"from": "rc-json"}',
     }, "/project");
     const result = await searchConfig(ctx, { name: "myapp", merge: true });
 
-    // package.json is first in default search places
+    // .myapprc is first in default search places
+    expect(result!.config).toEqual({ from: "rc" });
+  });
+
+  it("takes first match per level with custom search places including package.json", async () => {
+    const ctx = createCtx({
+      "/project/package.json": JSON.stringify({ myapp: { from: "pkg" } }),
+      "/project/.myapprc": '{"from": "rc"}',
+    }, "/project");
+    const result = await searchConfig(ctx, {
+      name: "myapp",
+      merge: true,
+      searchPlaces: ["package.json", ".myapprc"],
+      packageJsonProp: "myapp",
+    });
+
     expect(result!.config).toEqual({ from: "pkg" });
   });
 
@@ -141,7 +155,12 @@ describe("searchConfig merge per-level priority", () => {
       "/project/package.json": JSON.stringify({ name: "pkg" }),
       "/project/.myapprc.json": '{"from": "rc-json"}',
     }, "/project");
-    const result = await searchConfig(ctx, { name: "myapp", merge: true });
+    const result = await searchConfig(ctx, {
+      name: "myapp",
+      merge: true,
+      searchPlaces: ["package.json", ".myapprc.json"],
+      packageJsonProp: "myapp",
+    });
 
     expect(result!.config).toEqual({ from: "rc-json" });
   });

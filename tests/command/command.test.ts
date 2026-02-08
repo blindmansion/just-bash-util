@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { command, o, f } from "../../src/command";
+import { command, o, f, a } from "../../src/command";
 import { createTestCli, createNestedCli, createTestContext } from "./fixtures.ts";
 
 
@@ -389,5 +389,63 @@ describe("handler return values", () => {
     const result = await cli.execute([], createTestContext());
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe("async done");
+  });
+});
+
+// ============================================================================
+// execute() — error handling (thrown errors)
+// ============================================================================
+
+describe("execute() error handling", () => {
+  it("catches sync errors thrown by handlers", async () => {
+    const cli = command("test", {
+      description: "Test",
+      handler: () => {
+        throw new Error("handler blew up");
+      },
+    });
+    const result = await cli.execute([], createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("handler blew up");
+    expect(result.stdout).toBe("");
+  });
+
+  it("catches async errors thrown by handlers", async () => {
+    const cli = command("test", {
+      description: "Test",
+      handler: async () => {
+        await new Promise((r) => setTimeout(r, 1));
+        throw new Error("async failure");
+      },
+    });
+    const result = await cli.execute([], createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("async failure");
+  });
+
+  it("catches non-Error thrown values", async () => {
+    const cli = command("test", {
+      description: "Test",
+      handler: () => {
+        throw "string error";
+      },
+    });
+    const result = await cli.execute([], createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("string error");
+  });
+
+  it("catches errors in nested subcommand handlers", async () => {
+    const root = command("root", { description: "Root" });
+    root.command("sub", {
+      description: "Sub",
+      args: [a.string().name("file")],
+      handler: () => {
+        throw new Error("nested boom");
+      },
+    });
+    const result = await root.execute(["sub", "test.txt"], createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("nested boom");
   });
 });

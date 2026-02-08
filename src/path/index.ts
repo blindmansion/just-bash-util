@@ -202,6 +202,58 @@ export function format(pathObject: Partial<ParsedPath>): string {
 }
 
 // ============================================================================
+// Package specifier parsing
+// ============================================================================
+
+export interface PackageSpecifier {
+  /** Package name (e.g. `"pkg"` or `"@scope/pkg"`) */
+  name: string;
+  /** Subpath within the package (e.g. `"./sub/path"`), or `"."` for the root */
+  subpath: string;
+}
+
+/**
+ * Parse a bare package specifier into its package name and subpath.
+ *
+ * Handles both scoped (`@scope/pkg/sub`) and unscoped (`pkg/sub`) specifiers.
+ * The subpath is normalized to start with `"./"` (or `"."` for the root).
+ *
+ * ```ts
+ * parsePackageSpecifier("lodash/merge")     // { name: "lodash", subpath: "./merge" }
+ * parsePackageSpecifier("@vue/shared/dist") // { name: "@vue/shared", subpath: "./dist" }
+ * parsePackageSpecifier("react")            // { name: "react", subpath: "." }
+ * ```
+ */
+export function parsePackageSpecifier(specifier: string): PackageSpecifier {
+  if (specifier.startsWith("@")) {
+    // Scoped: first slash separates scope from name, second separates name from subpath
+    const firstSlash = specifier.indexOf("/");
+    if (firstSlash === -1) {
+      // Bare scope with no name — unusual but return as-is
+      return { name: specifier, subpath: "." };
+    }
+    const secondSlash = specifier.indexOf("/", firstSlash + 1);
+    if (secondSlash === -1) {
+      return { name: specifier, subpath: "." };
+    }
+    return {
+      name: specifier.slice(0, secondSlash),
+      subpath: `.${specifier.slice(secondSlash)}`,
+    };
+  }
+
+  // Unscoped: first slash separates name from subpath
+  const firstSlash = specifier.indexOf("/");
+  if (firstSlash === -1) {
+    return { name: specifier, subpath: "." };
+  }
+  return {
+    name: specifier.slice(0, firstSlash),
+    subpath: `.${specifier.slice(firstSlash)}`,
+  };
+}
+
+// ============================================================================
 // Relative path computation
 // ============================================================================
 

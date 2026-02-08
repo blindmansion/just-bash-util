@@ -355,7 +355,12 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
       }
     }
 
-    return this.handler(resolved, ctx, { passthrough: [] });
+    try {
+      return await this.handler(resolved, ctx, { passthrough: [] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { stdout: "", stderr: message, exitCode: 1 };
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -392,7 +397,12 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
       if (!parsed.ok) {
         return { stdout: "", stderr: formatErrors(parsed.errors), exitCode: 1 };
       }
-      return this.handler(parsed.args, ctx, { passthrough: parsed.passthrough });
+      try {
+        return await this.handler(parsed.args, ctx, { passthrough: parsed.passthrough });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { stdout: "", stderr: message, exitCode: 1 };
+      }
     }
 
     // No handler — check for unknown subcommand

@@ -12,6 +12,7 @@ import {
   parse,
   format,
   relative,
+  parsePackageSpecifier,
 } from "../../src/path";
 
 // ============================================================================
@@ -464,5 +465,60 @@ describe("relative", () => {
 
   it("works with relative paths", () => {
     expect(relative("a/b", "a/c")).toBe("../c");
+  });
+});
+
+// ============================================================================
+// parsePackageSpecifier
+// ============================================================================
+
+describe("parsePackageSpecifier", () => {
+  it("parses a bare unscoped package", () => {
+    expect(parsePackageSpecifier("lodash")).toEqual({
+      name: "lodash",
+      subpath: ".",
+    });
+  });
+
+  it("parses an unscoped package with subpath", () => {
+    expect(parsePackageSpecifier("lodash/merge")).toEqual({
+      name: "lodash",
+      subpath: "./merge",
+    });
+  });
+
+  it("parses an unscoped package with deep subpath", () => {
+    expect(parsePackageSpecifier("lodash/fp/merge")).toEqual({
+      name: "lodash",
+      subpath: "./fp/merge",
+    });
+  });
+
+  it("parses a bare scoped package", () => {
+    expect(parsePackageSpecifier("@vue/shared")).toEqual({
+      name: "@vue/shared",
+      subpath: ".",
+    });
+  });
+
+  it("parses a scoped package with subpath", () => {
+    expect(parsePackageSpecifier("@vue/shared/dist")).toEqual({
+      name: "@vue/shared",
+      subpath: "./dist",
+    });
+  });
+
+  it("parses a scoped package with deep subpath", () => {
+    expect(parsePackageSpecifier("@org/pkg/lib/utils/index.js")).toEqual({
+      name: "@org/pkg",
+      subpath: "./lib/utils/index.js",
+    });
+  });
+
+  it("handles bare scope without package name", () => {
+    expect(parsePackageSpecifier("@scope")).toEqual({
+      name: "@scope",
+      subpath: ".",
+    });
   });
 });

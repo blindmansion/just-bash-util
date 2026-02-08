@@ -34,7 +34,6 @@ export interface SearchConfigOptions {
    * Filenames to look for at each directory level, tried in order.
    *
    * Defaults:
-   * - `"package.json"` (extracts the `name` property)
    * - `".{name}rc"`
    * - `".{name}rc.json"`
    * - `"{name}.config.json"`
@@ -48,7 +47,7 @@ export interface SearchConfigOptions {
   /**
    * Property to extract from `package.json`.
    * Set to `false` to disable property extraction (load full object).
-   * Default: the `name` option.
+   * Default: `false`.
    */
   packageJsonProp?: string | false;
   /** Directory to stop searching at (default: `"/"`) */
@@ -136,7 +135,6 @@ const defaultLoader: Loader = (content) => parseJsonc(content);
 
 function defaultSearchPlaces(name: string): string[] {
   return [
-    "package.json",
     `.${name}rc`,
     `.${name}rc.json`,
     `${name}.config.json`,
@@ -203,7 +201,7 @@ async function collectAll<T>(
     from = ctx.cwd,
     searchPlaces = defaultSearchPlaces(name),
     loaders: customLoaders,
-    packageJsonProp = name,
+    packageJsonProp = false,
     stopAt = "/",
     stopWhen,
   } = options;
@@ -275,6 +273,16 @@ function mergeResults<T>(results: ConfigResult<T>[]): ConfigResult<T> | null {
  * const result = await searchConfig(ctx, { name: "myapp" });
  * if (result) console.log(result.config, result.filepath);
  *
+ * // Find nearest package.json and return its full contents
+ * const pkg = await searchConfig(ctx, { name: "package", searchPlaces: ["package.json"] });
+ *
+ * // Extract a specific property from package.json
+ * const result = await searchConfig(ctx, {
+ *   name: "myapp",
+ *   searchPlaces: ["package.json", ".myapprc", ".myapprc.json"],
+ *   packageJsonProp: "myapp",
+ * });
+ *
  * // Layered / cascading config
  * const merged = await searchConfig(ctx, { name: "myapp", merge: true });
  * ```
@@ -293,7 +301,7 @@ export async function searchConfig<T = unknown>(
     from = ctx.cwd,
     searchPlaces = defaultSearchPlaces(name),
     loaders: customLoaders,
-    packageJsonProp = name,
+    packageJsonProp = false,
     stopAt = "/",
   } = options;
 

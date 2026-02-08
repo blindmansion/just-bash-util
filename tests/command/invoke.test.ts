@@ -273,6 +273,43 @@ describe("invoke()", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe("hello world");
   });
+
+  it("catches sync errors thrown by handler", async () => {
+    const cli = command("test", {
+      description: "Test",
+      handler: () => {
+        throw new Error("invoke boom");
+      },
+    });
+    const result = await cli.invoke({}, createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("invoke boom");
+    expect(result.stdout).toBe("");
+  });
+
+  it("catches async errors thrown by handler", async () => {
+    const cli = command("test", {
+      description: "Test",
+      handler: async () => {
+        throw new Error("async invoke boom");
+      },
+    });
+    const result = await cli.invoke({}, createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("async invoke boom");
+  });
+
+  it("catches non-Error thrown values", async () => {
+    const cli = command("test", {
+      description: "Test",
+      handler: () => {
+        throw 42;
+      },
+    });
+    const result = await cli.invoke({}, createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("42");
+  });
 });
 
 // ============================================================================

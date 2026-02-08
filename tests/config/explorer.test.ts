@@ -72,14 +72,18 @@ describe("searchConfig", () => {
 // ============================================================================
 
 describe("searchConfig package.json", () => {
-  it("extracts the named property from package.json", async () => {
+  it("extracts the named property from package.json when configured", async () => {
     const ctx = createCtx({
       "/project/package.json": JSON.stringify({
         name: "my-project",
         myapp: { setting: true },
       }),
     }, "/project");
-    const result = await searchConfig(ctx, { name: "myapp" });
+    const result = await searchConfig(ctx, {
+      name: "myapp",
+      searchPlaces: ["package.json"],
+      packageJsonProp: "myapp",
+    });
 
     expect(result).not.toBeNull();
     expect(result!.config).toEqual({ setting: true });
@@ -91,7 +95,11 @@ describe("searchConfig package.json", () => {
       "/project/package.json": JSON.stringify({ name: "my-project" }),
       "/project/.myapprc.json": '{"fallback": true}',
     }, "/project");
-    const result = await searchConfig(ctx, { name: "myapp" });
+    const result = await searchConfig(ctx, {
+      name: "myapp",
+      searchPlaces: ["package.json", ".myapprc.json"],
+      packageJsonProp: "myapp",
+    });
 
     expect(result).not.toBeNull();
     expect(result!.config).toEqual({ fallback: true });
@@ -104,6 +112,7 @@ describe("searchConfig package.json", () => {
     }, "/project");
     const result = await searchConfig(ctx, {
       name: "myapp",
+      searchPlaces: ["package.json"],
       packageJsonProp: "customKey",
     });
 
@@ -111,18 +120,26 @@ describe("searchConfig package.json", () => {
     expect(result!.config).toEqual({ v: 1 });
   });
 
-  it("disables package.json extraction when packageJsonProp is false", async () => {
+  it("returns full package.json by default (no property extraction)", async () => {
     const ctx = createCtx({
       "/project/package.json": JSON.stringify({ name: "pkg", myapp: { v: 1 } }),
     }, "/project");
     const result = await searchConfig(ctx, {
       name: "myapp",
-      packageJsonProp: false,
       searchPlaces: ["package.json"],
     });
 
     expect(result).not.toBeNull();
     expect(result!.config).toEqual({ name: "pkg", myapp: { v: 1 } });
+  });
+
+  it("does not include package.json in default search places", async () => {
+    const ctx = createCtx({
+      "/project/package.json": JSON.stringify({ name: "pkg", myapp: { v: 1 } }),
+    }, "/project");
+    const result = await searchConfig(ctx, { name: "myapp" });
+
+    expect(result).toBeNull();
   });
 });
 
@@ -131,12 +148,27 @@ describe("searchConfig package.json", () => {
 // ============================================================================
 
 describe("searchConfig priority", () => {
-  it("respects search places order (package.json before rc)", async () => {
+  it("respects search places order", async () => {
+    const ctx = createCtx({
+      "/project/.myapprc": '{"from": "rc"}',
+      "/project/.myapprc.json": '{"from": "rc-json"}',
+    }, "/project");
+    const result = await searchConfig(ctx, { name: "myapp" });
+
+    // .myapprc comes before .myapprc.json in default search places
+    expect(result!.config).toEqual({ from: "rc" });
+  });
+
+  it("respects custom search places order (package.json before rc)", async () => {
     const ctx = createCtx({
       "/project/package.json": JSON.stringify({ myapp: { from: "pkg" } }),
       "/project/.myapprc": '{"from": "rc"}',
     }, "/project");
-    const result = await searchConfig(ctx, { name: "myapp" });
+    const result = await searchConfig(ctx, {
+      name: "myapp",
+      searchPlaces: ["package.json", ".myapprc"],
+      packageJsonProp: "myapp",
+    });
 
     expect(result!.config).toEqual({ from: "pkg" });
   });
@@ -465,14 +497,13 @@ describe("real-world scenarios", () => {
     });
   });
 
-  it("package.json search (full content, no property extraction)", async () => {
+  it("package.json search (full content, default behavior)", async () => {
     const ctx = createCtx({
       "/project/package.json": JSON.stringify({ name: "my-project", version: "1.0.0" }),
     }, "/project/src");
     const result = await searchConfig(ctx, {
       name: "package",
       searchPlaces: ["package.json"],
-      packageJsonProp: false,
     });
 
     expect(result!.config).toEqual({ name: "my-project", version: "1.0.0" });
