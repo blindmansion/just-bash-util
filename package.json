@@ -1,6 +1,6 @@
 {
-  "name": "just-util",
-  "version": "0.1.0",
+  "name": "just-bash-util",
+  "version": "0.1.1",
   "description": "CLI command framework, config file discovery, and path utilities for just-bash",
   "type": "module",
   "license": "MIT",

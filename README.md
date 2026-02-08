@@ -1,22 +1,22 @@
-# just-util
+# just-bash-util
 
 CLI command framework, config file discovery, and path utilities for [just-bash](https://www.npmjs.com/package/just-bash).
 
 ## Install
 
 ```bash
-bun add just-util just-bash
+bun add just-bash-util just-bash
 ```
 
 ## Modules
 
-### `just-util/command` — CLI framework
+### `just-bash-util/command` — CLI framework
 
 Type-safe command trees with fluent builders, inherited options, auto-generated help, and typo suggestions.
 
 ```ts
 import { Bash } from "just-bash";
-import { command, o, f, a } from "just-util/command";
+import { command, o, f, a } from "just-bash-util/command";
 
 const cli = command("mycli", {
   description: "My CLI tool",
@@ -43,7 +43,7 @@ await bash.exec("mycli serve app.ts -p 8080");
 Commands can also be executed directly without just-bash:
 
 ```ts
-import type { Infer } from "just-util/command";
+import type { Infer } from "just-bash-util/command";
 
 // Extract handler args type externally (like z.infer)
 type ServeArgs = Infer<typeof serve>;
@@ -56,6 +56,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 ```
 
 **Features:**
+
 - Subcommand nesting with automatic option inheritance
 - `omitInherited` to exclude parent options from specific subcommands
 - `--help` / `-h` auto-generated at every level
@@ -64,19 +65,19 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
 
-### `just-util/config` — Config file discovery
+### `just-bash-util/config` — Config file discovery
 
 Cosmiconfig-style config search that walks up the directory tree, trying conventional filenames at each level. Comments and trailing commas are supported out of the box.
 
 ```ts
-import { searchConfig } from "just-util/config";
+import { searchConfig } from "just-bash-util/config";
 
 // Walks up from cwd trying: package.json#myapp, .myapprc, .myapprc.json, myapp.config.json
 const result = await searchConfig(ctx, { name: "myapp" });
 if (result) {
-  result.config;    // parsed config object
-  result.filepath;  // absolute path to the file that matched
-  result.isEmpty;   // true if config is null/undefined/empty object
+  result.config; // parsed config object
+  result.filepath; // absolute path to the file that matched
+  result.isEmpty; // true if config is null/undefined/empty object
 }
 
 // Customize search places, starting directory, or add custom loaders
@@ -108,22 +109,39 @@ const result = await searchConfig(ctx, {
 
 Also exports `loadConfig` for loading a known file path directly (e.g. when the user passes `--config ./path`), and `findUp` for locating files by name up the directory tree.
 
-### `just-util/path` — Path utilities
+### `just-bash-util/path` — Path utilities
 
 Pure POSIX path operations with no Node.js dependency.
 
 ```ts
-import { join, resolve, dirname, basename, extname, relative, parse, normalize } from "just-util/path";
+import {
+  join,
+  resolve,
+  dirname,
+  basename,
+  extname,
+  relative,
+  parse,
+  normalize,
+} from "just-bash-util/path";
 
-join("src", "utils", "index.ts");  // "src/utils/index.ts"
-dirname("/project/src/index.ts");  // "/project/src"
-basename("src/index.ts", ".ts");   // "index"
-relative("/a/b/c", "/a/d");       // "../../d"
+join("src", "utils", "index.ts"); // "src/utils/index.ts"
+dirname("/project/src/index.ts"); // "/project/src"
+basename("src/index.ts", ".ts"); // "index"
+relative("/a/b/c", "/a/d"); // "../../d"
 ```
 
 ## Peer dependencies
 
 Requires [`just-bash`](https://www.npmjs.com/package/just-bash) ^2.9.6 — provides the `CommandContext` and `ExecResult` types used throughout.
+
+## Status
+
+This project is in early development. Test coverage exists but is limited — expect gaps, especially around edge cases. Contributions and bug reports are welcome.
+
+## Disclaimer
+
+This project is not affiliated with, endorsed by, or associated with Vercel or the just-bash project.
 
 ## License
 
