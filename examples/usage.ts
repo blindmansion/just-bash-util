@@ -18,9 +18,9 @@ const cli = command("mycli", {
 const serve = cli.command("serve", {
   description: "Start the development server",
   options: {
-    port: o.number().default(3000).short("p").describe("Port to listen on"),
+    port: o.number().default(3000).alias("p").describe("Port to listen on"),
     host: o.string().describe("Host to bind to"),
-    open: f().short("o").describe("Open browser automatically"),
+    open: f().alias("o").describe("Open browser automatically"),
   },
   args: [
     a.string().name("entry").describe("Entry file to serve"),
@@ -60,9 +60,9 @@ type ServeArgs = Infer<typeof serve>;
 cli.command("deploy", {
   description: "Deploy the application",
   options: {
-    target: o.string().required().short("t").describe("Deployment target"),
+    target: o.string().required().alias("t").describe("Deployment target"),
     replicas: o.number().default(1).describe("Number of replicas"),
-    dryRun: f().short("n").describe("Preview without executing"),
+    dryRun: f().alias("n").describe("Preview without executing"),
   },
   handler: (args) => {
     // Hover over `args`:
@@ -84,8 +84,8 @@ cli.command("deploy", {
 cli.command("rm", {
   description: "Remove files",
   options: {
-    force: f().short("f").describe("Force removal"),
-    recursive: f().short("r").describe("Remove directories recursively"),
+    force: f().alias("f").describe("Force removal"),
+    recursive: f().alias("r").describe("Remove directories recursively"),
   },
   args: [
     a.string().name("files").variadic().describe("Files to remove"),
@@ -121,7 +121,7 @@ db.command("migrate", {
   description: "Run pending migrations",
   options: {
     steps: o.number().default(0).describe("Number of migrations (0 = all)"),
-    dryRun: f().short("n").describe("Preview SQL without executing"),
+    dryRun: f().alias("n").describe("Preview SQL without executing"),
   },
   examples: [
     "mycli db migrate",
@@ -171,7 +171,7 @@ db.command("seed", {
 const cloud = cli.command("cloud", {
   description: "Cloud infrastructure management",
   options: {
-    region: o.string().default("us-east-1").short("r").describe("Cloud region"),
+    region: o.string().default("us-east-1").alias("r").describe("Cloud region"),
     profile: o.string().describe("Named credential profile"),
   },
 });
@@ -179,7 +179,7 @@ const cloud = cli.command("cloud", {
 const storage = cloud.command("storage", {
   description: "Object storage operations",
   options: {
-    bucket: o.string().required().short("b").describe("Bucket name"),
+    bucket: o.string().required().alias("b").describe("Bucket name"),
   },
 });
 

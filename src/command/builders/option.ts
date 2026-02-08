@@ -20,9 +20,9 @@ export class OptionBuilder<TOut, THasDefault extends boolean = false> {
     return new OptionBuilder({ ...this._def, description: text }) as OptionBuilder<TOut, THasDefault>;
   }
 
-  /** Set a short alias (single character) */
-  short(alias: string): OptionBuilder<TOut, THasDefault> {
-    return new OptionBuilder({ ...this._def, short: alias }) as OptionBuilder<TOut, THasDefault>;
+  /** Set a short alias (single character, e.g. "p" for -p) */
+  alias(short: string): OptionBuilder<TOut, THasDefault> {
+    return new OptionBuilder({ ...this._def, short }) as OptionBuilder<TOut, THasDefault>;
   }
 
   /** Set an environment variable fallback */

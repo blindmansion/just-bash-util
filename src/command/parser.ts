@@ -177,6 +177,9 @@ export function parseArgs(
         errors.push({ type: "missing_required", name: argName, kind: "arg" });
       } else if (argDef.default !== undefined) {
         result[argName] = argDef.default;
+      } else {
+        // Optional variadic with no values and no explicit default → empty array
+        result[argName] = [];
       }
       posIdx = positionals.length;
     } else {

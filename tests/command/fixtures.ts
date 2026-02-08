@@ -37,9 +37,14 @@ export const optionalStringArg: ArgsSchema = [
   { _kind: "arg", _type: undefined as unknown as string, type: "string", name: "file", required: false },
 ];
 
-/** A variadic string arg */
+/** A variadic string arg (required — at least one value needed) */
 export const variadicStringArgs: ArgsSchema = [
   { _kind: "arg", _type: undefined as unknown as string[], type: "string", name: "files", required: true, variadic: true },
+];
+
+/** An optional variadic string arg (zero or more values) */
+export const optionalVariadicStringArgs: ArgsSchema = [
+  { _kind: "arg", _type: undefined as unknown as string[], type: "string", name: "packages", required: false, variadic: true },
 ];
 
 /** Two positional args: required source, optional destination */
@@ -84,9 +89,9 @@ export function createTestCli() {
   cli.command("serve", {
     description: "Start server",
     options: {
-      port: o.number().default(3000).short("p").describe("Port"),
+      port: o.number().default(3000).alias("p").describe("Port"),
       host: o.string().describe("Host"),
-      open: f().short("o").describe("Open browser"),
+      open: f().alias("o").describe("Open browser"),
     },
     args: [a.string().name("entry").describe("Entry file")],
     examples: ["mycli serve index.ts", "mycli serve index.ts -p 8080"],
@@ -109,7 +114,7 @@ export function createTestCli() {
     description: "Run migrations",
     options: {
       steps: o.number().default(0).describe("Migration steps"),
-      dryRun: f().short("n").describe("Dry run"),
+      dryRun: f().alias("n").describe("Dry run"),
     },
     handler: (args) => {
       const lines = [`[${args.schema}] migrating ${args.steps || "all"} steps`];
@@ -146,7 +151,7 @@ export function createNestedCli() {
   const cloud = root.command("cloud", {
     description: "Cloud ops",
     options: {
-      region: o.string().default("us-east-1").short("r").describe("Region"),
+      region: o.string().default("us-east-1").alias("r").describe("Region"),
       profile: o.string().describe("Profile"),
     },
   });
@@ -154,7 +159,7 @@ export function createNestedCli() {
   const storage = cloud.command("storage", {
     description: "Storage ops",
     options: {
-      bucket: o.string().required().short("b").describe("Bucket"),
+      bucket: o.string().required().alias("b").describe("Bucket"),
     },
   });
 

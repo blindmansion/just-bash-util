@@ -17,9 +17,9 @@ export class FlagBuilder {
     return new FlagBuilder({ ...this._def, description: text });
   }
 
-  /** Set a short alias (single character) */
-  short(alias: string): FlagBuilder {
-    return new FlagBuilder({ ...this._def, short: alias });
+  /** Set a short alias (single character, e.g. "v" for -v) */
+  alias(short: string): FlagBuilder {
+    return new FlagBuilder({ ...this._def, short });
   }
 
   /** Set a default value */

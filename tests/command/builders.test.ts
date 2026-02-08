@@ -20,8 +20,8 @@ describe("o.string()", () => {
     expect(o.string().describe("A label")._def.description).toBe("A label");
   });
 
-  it(".short() sets short alias", () => {
-    expect(o.string().short("s")._def.short).toBe("s");
+  it(".alias() sets short alias", () => {
+    expect(o.string().alias("s")._def.short).toBe("s");
   });
 
   it(".env() sets env var name", () => {
@@ -37,7 +37,7 @@ describe("o.string()", () => {
   });
 
   it("chains multiple methods", () => {
-    const def = o.string().short("h").describe("Host").default("localhost").env("HOST")._def;
+    const def = o.string().alias("h").describe("Host").default("localhost").env("HOST")._def;
     expect(def.short).toBe("h");
     expect(def.description).toBe("Host");
     expect(def.default).toBe("localhost");
@@ -74,8 +74,8 @@ describe("f()", () => {
     expect(f()._def.short).toBeUndefined();
   });
 
-  it(".short() sets short alias", () => {
-    expect(f().short("v")._def.short).toBe("v");
+  it(".alias() sets short alias", () => {
+    expect(f().alias("v")._def.short).toBe("v");
   });
 
   it(".describe() sets description", () => {

@@ -28,9 +28,9 @@ const cli = command("mycli", {
 const serve = cli.command("serve", {
   description: "Start the dev server",
   options: {
-    port: o.number().default(3000).short("p").describe("Port to listen on"),
+    port: o.number().default(3000).alias("p").describe("Port to listen on"),
     host: o.string().describe("Host to bind to"),
-    open: f().short("o").describe("Open browser"),
+    open: f().alias("o").describe("Open browser"),
   },
   args: [a.string().name("entry").describe("Entry file")],
   handler: (args, ctx) => {

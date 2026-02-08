@@ -38,12 +38,14 @@ export class ArgBuilder<TOut, TName extends string = never, THasDefault extends 
     } as unknown as ArgDef<TOut | undefined>) as ArgBuilder<TOut | undefined, TName, THasDefault>;
   }
 
-  /** Mark as variadic — collects all remaining positionals into an array */
-  variadic(): ArgBuilder<TOut[], TName, THasDefault> {
-    return new ArgBuilder<TOut[], TName>({
+  /** Mark as variadic — collects all remaining positionals into an array.
+   *  If the arg is already optional, element-level undefined is stripped
+   *  (the optionality means "zero or more", not "elements can be undefined"). */
+  variadic(): ArgBuilder<NonNullable<TOut>[], TName, THasDefault> {
+    return new ArgBuilder<NonNullable<TOut>[], TName>({
       ...this._def,
       variadic: true,
-    } as unknown as ArgDef<TOut[]>) as ArgBuilder<TOut[], TName, THasDefault>;
+    } as unknown as ArgDef<NonNullable<TOut>[]>) as ArgBuilder<NonNullable<TOut>[], TName, THasDefault>;
   }
 
   /** Set a default value (also makes the arg optional at parse time) */

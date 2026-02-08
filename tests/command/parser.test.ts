@@ -6,6 +6,7 @@ import {
   singleStringArg,
   optionalStringArg,
   variadicStringArgs,
+  optionalVariadicStringArgs,
   twoPositionalArgs,
   numberArg,
   emptyOptions,
@@ -165,6 +166,18 @@ describe("positional arguments", () => {
       name: "files",
       kind: "arg",
     });
+  });
+
+  it("returns empty array for optional variadic with no values", () => {
+    const result = expectOk(parseArgs(emptyOptions, optionalVariadicStringArgs, []));
+    expect(result.args.packages).toEqual([]);
+  });
+
+  it("returns populated array for optional variadic with values", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, optionalVariadicStringArgs, ["lodash", "nanoid"]),
+    );
+    expect(result.args.packages).toEqual(["lodash", "nanoid"]);
   });
 
   it("parses two positional args", () => {

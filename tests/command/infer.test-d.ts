@@ -81,6 +81,35 @@ describe("Infer", () => {
     }>();
   });
 
+  test("infers optional variadic args as clean array (no element-level undefined)", () => {
+    const install = command("install", {
+      description: "Install packages",
+      args: [a.string().name("packages").optional().variadic()] as const,
+      handler: (args) => ({ stdout: "", stderr: "", exitCode: 0 }),
+    });
+
+    type InstallArgs = Infer<typeof install>;
+
+    // optional + variadic should produce string[], NOT (string | undefined)[]
+    expectTypeOf<InstallArgs>().toEqualTypeOf<{
+      packages: string[];
+    }>();
+  });
+
+  test("infers required variadic args as clean array", () => {
+    const uninstall = command("uninstall", {
+      description: "Uninstall packages",
+      args: [a.string().name("packages").variadic()] as const,
+      handler: (args) => ({ stdout: "", stderr: "", exitCode: 0 }),
+    });
+
+    type UninstallArgs = Infer<typeof uninstall>;
+
+    expectTypeOf<UninstallArgs>().toEqualTypeOf<{
+      packages: string[];
+    }>();
+  });
+
   test("infers optional args with undefined", () => {
     const cmd = command("cmd", {
       description: "Test",
