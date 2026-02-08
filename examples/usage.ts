@@ -247,6 +247,23 @@ cli.command("ping", {
 });
 
 // ============================================================================
+// 7. Programmatic invocation — invoke() with typed args
+//
+//    Hover over `serve.invoke(...)` to see the typed signature.
+//    Required options/args are mandatory; defaulted/optional ones are optional.
+// ============================================================================
+
+async function invokeExample(ctx: CommandContext) {
+  // Hover over invoke() — args are fully typed:
+  //   { entry: string; port?: number; host?: string; open?: boolean }
+  const result = await serve.invoke(
+    { entry: "app.ts", port: 8080 },
+    ctx,
+  );
+  return result;
+}
+
+// ============================================================================
 // Run examples
 // ============================================================================
 

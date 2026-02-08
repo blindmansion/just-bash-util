@@ -85,7 +85,7 @@ function resolveArgsInput(input: ArgsInput | undefined): ArgsSchema {
 // Command class
 // ============================================================================
 
-export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsInput = []> {
+export class Command<THandlerArgs extends object = {}, TInvokeArgs extends object = {}> {
   readonly name: string;
   readonly description: string;
   readonly options: OptionsSchema;
@@ -96,10 +96,10 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
   readonly children = new Map<string, Command<any, any>>();
   parent?: Command<any, any>;
 
-  /** @internal — accumulated builder types for generic inference */
-  readonly _accOpts: TAccOpts;
-  /** @internal — args builder types for generic inference */
-  readonly _accArgs: TAccArgs;
+  /** @internal — phantom type carrying the resolved handler args */
+  declare readonly _handlerArgs: THandlerArgs;
+  /** @internal — phantom type carrying the resolved invoke args */
+  declare readonly _invokeArgs: TInvokeArgs;
 
   /** @internal */
   constructor(
@@ -110,8 +110,6 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
     examples: readonly string[],
     omitInherited: ReadonlySet<string>,
     handler: Handler<any> | undefined,
-    accOpts: TAccOpts,
-    accArgs: TAccArgs,
   ) {
     this.name = name;
     this.description = description;
@@ -120,8 +118,6 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
     this.examples = examples;
     this.omitInherited = omitInherited;
     this.handler = handler;
-    this._accOpts = accOpts;
-    this._accArgs = accArgs;
   }
 
   // --------------------------------------------------------------------------
@@ -143,20 +139,18 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
       readonly omitInherited?: TOmit;
       readonly handler?: Handler<
         Prettify<
-          Omit<InferOptionsFromInput<TAccOpts>, TOmit[number]> &
+          Omit<THandlerArgs, TOmit[number]> &
           InferOptionsFromInput<TOpts> &
           InferArgsFromInput<TArgs>
         >
       >;
     },
-  ): Command<Omit<TAccOpts, TOmit[number]> & TOpts, TArgs> {
-    type ChildAcc = Omit<TAccOpts, TOmit[number]> & TOpts;
+  ): Command<
+    Prettify<Omit<THandlerArgs, TOmit[number]> & InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>,
+    Prettify<Omit<TInvokeArgs, TOmit[number]> & InferInvokeOptions<TOpts> & InferInvokeArgs<TArgs>>
+  > {
     const omitSet = new Set(config.omitInherited ?? []);
-    const parentAcc = { ...this._accOpts };
-    for (const key of omitSet) delete (parentAcc as any)[key];
-    const accOpts = { ...parentAcc, ...(config.options ?? {}) } as unknown as ChildAcc;
-
-    const child = new Command<ChildAcc, TArgs>(
+    const child = new Command(
       name,
       config.description,
       resolveOptionsInput(config.options),
@@ -164,12 +158,10 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
       config.examples ?? [],
       omitSet,
       config.handler as Handler<any> | undefined,
-      accOpts,
-      (config.args ?? []) as unknown as TArgs,
     );
     child.parent = this;
     this.children.set(name, child);
-    return child;
+    return child as any;
   }
 
   // --------------------------------------------------------------------------
@@ -250,7 +242,7 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
    * ```
    */
   toTokens(
-    args: Partial<Prettify<InferOptionsFromInput<TAccOpts> & InferArgsFromInput<TAccArgs>>>,
+    args: Partial<THandlerArgs>,
   ): string[] {
     const tokens: string[] = [];
     const allOpts = this.allOptions;
@@ -306,7 +298,7 @@ export class Command<TAccOpts extends OptionsInput = {}, TAccArgs extends ArgsIn
    * ```
    */
   async invoke(
-    args: Prettify<InferInvokeOptions<TAccOpts> & InferInvokeArgs<TAccArgs>>,
+    args: TInvokeArgs,
     ctx: CommandContext,
   ): Promise<ExecResult> {
     if (!this.handler) {
@@ -440,8 +432,11 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
       Prettify<InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>
     >;
   },
-): Command<TOpts, TArgs> {
-  return new Command<TOpts, TArgs>(
+): Command<
+  Prettify<InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>,
+  Prettify<InferInvokeOptions<TOpts> & InferInvokeArgs<TArgs>>
+> {
+  return new Command(
     name,
     config.description,
     resolveOptionsInput(config.options),
@@ -449,9 +444,7 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
     config.examples ?? [],
     new Set(),
     config.handler as Handler<any> | undefined,
-    (config.options ?? {}) as TOpts,
-    (config.args ?? []) as unknown as TArgs,
-  );
+  ) as any;
 }
 
 // ============================================================================
@@ -476,9 +469,7 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
  * //   ^? { port: number; entry: string }
  * ```
  */
-export type Infer<T extends Command<any, any>> = Prettify<
-  InferOptionsFromInput<T["_accOpts"]> & InferArgsFromInput<T["_accArgs"]>
->;
+export type Infer<T extends Command<any, any>> = T["_handlerArgs"];
 
 // ============================================================================
 // Helpers
