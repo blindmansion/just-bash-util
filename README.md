@@ -15,8 +15,8 @@ bun add just-util just-bash
 Type-safe command trees with fluent builders, inherited options, auto-generated help, and typo suggestions.
 
 ```ts
+import { Bash } from "just-bash";
 import { command, o, f, a } from "just-util/command";
-import type { Infer } from "just-util/command";
 
 const cli = command("mycli", {
   description: "My CLI tool",
@@ -36,6 +36,15 @@ const serve = cli.command("serve", {
   },
 });
 
+const bash = new Bash({ customCommands: [cli.toCommand()] });
+await bash.exec("mycli serve app.ts -p 8080");
+```
+
+Commands can also be executed directly without just-bash:
+
+```ts
+import type { Infer } from "just-util/command";
+
 // Extract handler args type externally (like z.infer)
 type ServeArgs = Infer<typeof serve>;
 
@@ -54,14 +63,6 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - `--` passthrough separator
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
-- One-line integration with just-bash:
-
-```ts
-import { Bash } from "just-bash";
-
-const bash = new Bash({ customCommands: [cli.toCommand()] });
-await bash.exec("mycli serve app.ts -p 8080");
-```
 
 ### `just-util/config` — Config file discovery
 
@@ -83,6 +84,25 @@ const result2 = await searchConfig(ctx, {
   name: "myapp",
   from: "/specific/start/dir",
   searchPlaces: [".myapprc.json", "myapp.config.json"],
+});
+```
+
+**Layered / cascading configs** — pass `merge: true` to collect configs from every directory level and deep-merge them (closest wins):
+
+```ts
+const result = await searchConfig(ctx, { name: "myapp", merge: true });
+// e.g. /project/.myapprc.json  → { indent: 2, rules: { semi: "error" } }
+//      /.myapprc.json           → { indent: 4, color: true, rules: { semi: "warn" } }
+// result.config                → { indent: 2, color: true, rules: { semi: "error" } }
+```
+
+Use `stopWhen` for ESLint-style `root: true` cascading stops:
+
+```ts
+const result = await searchConfig(ctx, {
+  name: "myapp",
+  merge: true,
+  stopWhen: (cfg) => cfg.root === true,
 });
 ```
 

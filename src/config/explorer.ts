@@ -53,6 +53,28 @@ export interface SearchConfigOptions {
   packageJsonProp?: string | false;
   /** Directory to stop searching at (default: `"/"`) */
   stopAt?: string;
+  /**
+   * When `true`, collect configs from **every** directory level and
+   * deep-merge them into a single result. Closer configs (nearer to
+   * `from`) take precedence over more ancestral ones.
+   *
+   * Plain objects are merged recursively; everything else (primitives,
+   * arrays) is replaced outright — the closer value wins.
+   *
+   * Default: `false` (return the first match).
+   */
+  merge?: boolean;
+  /**
+   * Stop collecting configs when this predicate returns true.
+   * The matching config **is** included in the result.
+   * Only meaningful when `merge` is `true`; ignored otherwise.
+   *
+   * Useful for ESLint-style `root: true` cascading stops:
+   * ```ts
+   * stopWhen: (cfg) => cfg.root === true
+   * ```
+   */
+  stopWhen?: (config: unknown) => boolean;
 }
 
 export interface LoadConfigOptions {
@@ -66,6 +88,39 @@ export interface LoadConfigOptions {
    * Omit or set to `false` to return the full object.
    */
   packageJsonProp?: string | false;
+}
+
+// ============================================================================
+// Deep merge (internal)
+// ============================================================================
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
+}
+
+/**
+ * Recursively merge two values. Plain objects are merged key-by-key;
+ * everything else (primitives, arrays, class instances) is replaced
+ * outright — `override` wins.
+ */
+function deepMerge<T>(base: T, override: T): T {
+  if (!isPlainObject(base) || !isPlainObject(override)) {
+    return override;
+  }
+
+  const result: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(override)) {
+    result[key] =
+      key in result
+        ? deepMerge(result[key], override[key])
+        : override[key];
+  }
+  return result as T;
 }
 
 // ============================================================================
@@ -138,6 +193,73 @@ async function loadFileInternal<T>(
   };
 }
 
+/** Collect all matching configs (closest-first), used when `merge` is true. */
+async function collectAll<T>(
+  ctx: CommandContext,
+  options: SearchConfigOptions,
+): Promise<ConfigResult<T>[]> {
+  const {
+    name,
+    from = ctx.cwd,
+    searchPlaces = defaultSearchPlaces(name),
+    loaders: customLoaders,
+    packageJsonProp = name,
+    stopAt = "/",
+    stopWhen,
+  } = options;
+
+  const results: ConfigResult<T>[] = [];
+  let dir = from;
+
+  while (true) {
+    for (const place of searchPlaces) {
+      const filepath = join(dir, place);
+
+      if (!(await ctx.fs.exists(filepath))) continue;
+
+      try {
+        const result = await loadFileInternal<T>(ctx.fs, filepath, customLoaders, packageJsonProp);
+        if (result !== null) {
+          results.push(result);
+
+          if (stopWhen?.(result.config)) return results;
+
+          // Only take the first match per directory level
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (dir === stopAt) break;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return results;
+}
+
+/** Merge an array of results (closest-first) into a single result. */
+function mergeResults<T>(results: ConfigResult<T>[]): ConfigResult<T> | null {
+  if (results.length === 0) return null;
+  if (results.length === 1) return results[0]!;
+
+  // Fold right-to-left: start from the most ancestral config and
+  // progressively overlay closer configs on top.
+  const merged = results.reduceRight(
+    (acc, r) => deepMerge(acc, r.config),
+    {} as T,
+  );
+
+  return {
+    config: merged,
+    filepath: results[0]!.filepath,
+    isEmpty: checkEmpty(merged),
+  };
+}
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -146,15 +268,26 @@ async function loadFileInternal<T>(
  * Search for a config file by walking up the directory tree from `ctx.cwd`
  * (or `options.from`), trying each search place at every level.
  *
+ * By default, returns the **first** match. When `merge` is `true`, collects
+ * configs from every level and deep-merges them (closest wins).
+ *
  * ```ts
  * const result = await searchConfig(ctx, { name: "myapp" });
  * if (result) console.log(result.config, result.filepath);
+ *
+ * // Layered / cascading config
+ * const merged = await searchConfig(ctx, { name: "myapp", merge: true });
  * ```
  */
 export async function searchConfig<T = unknown>(
   ctx: CommandContext,
   options: SearchConfigOptions,
 ): Promise<ConfigResult<T> | null> {
+  if (options.merge) {
+    const results = await collectAll<T>(ctx, options);
+    return mergeResults(results);
+  }
+
   const {
     name,
     from = ctx.cwd,
