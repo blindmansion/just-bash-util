@@ -65,27 +65,28 @@ await bash.exec("mycli serve app.ts -p 8080");
 
 ### `just-util/config` — Config file discovery
 
-Cosmiconfig-style config search with `findUp` and `searchConfig`.
+Cosmiconfig-style config search that walks up the directory tree, trying conventional filenames at each level. Comments and trailing commas are supported out of the box.
 
 ```ts
-import { searchConfig, findUp, loadConfig, parseJsonc } from "just-util/config";
+import { searchConfig } from "just-util/config";
 
-// Walk up from cwd looking for .myapprc, .myapprc.json, myapp.config.json, or package.json#myapp
+// Walks up from cwd trying: package.json#myapp, .myapprc, .myapprc.json, myapp.config.json
 const result = await searchConfig(ctx, { name: "myapp" });
 if (result) {
-  console.log(result.config);   // parsed config object
-  console.log(result.filepath); // absolute path to the file
+  result.config;    // parsed config object
+  result.filepath;  // absolute path to the file that matched
+  result.isEmpty;   // true if config is null/undefined/empty object
 }
 
-// Find a specific file up the directory tree
-const tsconfig = await findUp(ctx, "tsconfig.json");
-
-// Load a known config file directly
-const cfg = await loadConfig(ctx, "/project/.myapprc.json");
-
-// Parse JSON with comments and trailing commas
-const data = parseJsonc('{ "key": "value", /* comment */ }');
+// Customize search places, starting directory, or add custom loaders
+const result2 = await searchConfig(ctx, {
+  name: "myapp",
+  from: "/specific/start/dir",
+  searchPlaces: [".myapprc.json", "myapp.config.json"],
+});
 ```
+
+Also exports `loadConfig` for loading a known file path directly (e.g. when the user passes `--config ./path`), and `findUp` for locating files by name up the directory tree.
 
 ### `just-util/path` — Path utilities
 

@@ -282,32 +282,18 @@ describe("searchConfig custom loaders", () => {
 // searchConfig — jsonc mode
 // ============================================================================
 
-describe("searchConfig jsonc mode", () => {
-  it("parses .json files with comments when jsonc is true", async () => {
+describe("searchConfig jsonc support", () => {
+  it("parses .json files with comments and trailing commas", async () => {
     const ctx = createCtx({
       "/project/.myapprc.json": `{
   // comment
   "key": "value",
 }`,
     }, "/project");
-    const result = await searchConfig(ctx, { name: "myapp", jsonc: true });
+    const result = await searchConfig(ctx, { name: "myapp" });
 
     expect(result).not.toBeNull();
     expect(result!.config).toEqual({ key: "value" });
-  });
-
-  it("fails on comments in .json when jsonc is false", async () => {
-    const ctx = createCtx({
-      "/project/.myapprc.json": `{
-  // comment
-  "key": "value"
-}`,
-      "/project/myapp.config.json": '{"fallback": true}',
-    }, "/project");
-    const result = await searchConfig(ctx, { name: "myapp", jsonc: false });
-
-    // .myapprc.json fails to parse → skipped, falls through to config.json
-    expect(result!.config).toEqual({ fallback: true });
   });
 });
 
@@ -425,14 +411,14 @@ describe("loadConfig", () => {
     await expect(loadConfig(ctx, "/project/bad.json")).rejects.toThrow();
   });
 
-  it("uses jsonc mode", async () => {
+  it("parses config files with comments and trailing commas", async () => {
     const ctx = createCtx({
       "/project/config.json": `{
   // comment
   "key": "value",
 }`,
     });
-    const result = await loadConfig(ctx, "/project/config.json", { jsonc: true });
+    const result = await loadConfig(ctx, "/project/config.json");
 
     expect(result).not.toBeNull();
     expect(result!.config).toEqual({ key: "value" });
@@ -469,7 +455,6 @@ describe("real-world scenarios", () => {
       name: "tsconfig",
       searchPlaces: ["tsconfig.json"],
       packageJsonProp: false,
-      jsonc: true,
     });
 
     expect(result).not.toBeNull();

@@ -53,8 +53,6 @@ export interface SearchConfigOptions {
   packageJsonProp?: string | false;
   /** Directory to stop searching at (default: `"/"`) */
   stopAt?: string;
-  /** Use JSONC parser (comments + trailing commas) for `.json` files (default: `false`) */
-  jsonc?: boolean;
 }
 
 export interface LoadConfigOptions {
@@ -68,16 +66,14 @@ export interface LoadConfigOptions {
    * Omit or set to `false` to return the full object.
    */
   packageJsonProp?: string | false;
-  /** Use JSONC parser (comments + trailing commas) for `.json` files (default: `false`) */
-  jsonc?: boolean;
 }
 
 // ============================================================================
 // Built-in loaders
 // ============================================================================
 
-const jsonLoader: Loader = (content) => JSON.parse(content);
-const jsoncLoader: Loader = (content) => parseJsonc(content);
+/** Default loader — JSONC (supports comments and trailing commas, strict JSON passes through fine) */
+const defaultLoader: Loader = (content) => parseJsonc(content);
 
 // ============================================================================
 // Helpers
@@ -92,18 +88,14 @@ function defaultSearchPlaces(name: string): string[] {
   ];
 }
 
-function buildLoaders(jsonc: boolean): Record<string, Loader> {
-  const parser = jsonc ? jsoncLoader : jsonLoader;
-  return {
-    ".json": parser,
-    "noExt": parser,
-  };
-}
+const builtinLoaders: Record<string, Loader> = {
+  ".json": defaultLoader,
+  "noExt": defaultLoader,
+};
 
 function resolveLoader(
   filepath: string,
   customLoaders: Record<string, Loader> | undefined,
-  builtinLoaders: Record<string, Loader>,
 ): Loader {
   const ext = extname(filepath);
   const key = ext || "noExt";
@@ -111,7 +103,7 @@ function resolveLoader(
   if (customLoaders?.[key]) return customLoaders[key]!;
   if (builtinLoaders[key]) return builtinLoaders[key]!;
 
-  return builtinLoaders[".json"] ?? jsonLoader;
+  return defaultLoader;
 }
 
 function checkEmpty(value: unknown): boolean {
@@ -124,12 +116,11 @@ function checkEmpty(value: unknown): boolean {
 async function loadFileInternal<T>(
   fs: IFileSystem,
   filepath: string,
-  builtinLoaders: Record<string, Loader>,
   customLoaders: Record<string, Loader> | undefined,
   packageJsonProp: string | false,
 ): Promise<ConfigResult<T> | null> {
   const content = await fs.readFile(filepath);
-  const loader = resolveLoader(filepath, customLoaders, builtinLoaders);
+  const loader = resolveLoader(filepath, customLoaders);
   let config: unknown = loader(content, filepath);
 
   if (basename(filepath) === "package.json" && packageJsonProp !== false) {
@@ -171,10 +162,8 @@ export async function searchConfig<T = unknown>(
     loaders: customLoaders,
     packageJsonProp = name,
     stopAt = "/",
-    jsonc = false,
   } = options;
 
-  const builtins = buildLoaders(jsonc);
   let dir = from;
 
   while (true) {
@@ -184,7 +173,7 @@ export async function searchConfig<T = unknown>(
       if (!(await ctx.fs.exists(filepath))) continue;
 
       try {
-        const result = await loadFileInternal<T>(ctx.fs, filepath, builtins, customLoaders, packageJsonProp);
+        const result = await loadFileInternal<T>(ctx.fs, filepath, customLoaders, packageJsonProp);
         if (result !== null) return result;
         // null → package.json without the property, skip
       } catch {
@@ -221,9 +210,7 @@ export async function loadConfig<T = unknown>(
   const {
     loaders: customLoaders,
     packageJsonProp = false,
-    jsonc = false,
   } = options ?? {};
 
-  const builtins = buildLoaders(jsonc);
-  return loadFileInternal<T>(ctx.fs, filepath, builtins, customLoaders, packageJsonProp);
+  return loadFileInternal<T>(ctx.fs, filepath, customLoaders, packageJsonProp);
 }
