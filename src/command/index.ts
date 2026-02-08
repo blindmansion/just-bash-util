@@ -1,5 +1,5 @@
 // Fluent builders
-export { o, f, a, OptionBuilder, FlagBuilder, ArgBuilder } from "./builders/index.ts";
+export { o, f, a } from "./builders/index.ts";
 
 // Command
 export { command, Command } from "./command.ts";
@@ -16,15 +16,4 @@ export { generateHelp } from "./help.ts";
 export { formatError, formatErrors } from "./errors.ts";
 
 // Types
-export type {
-  OptionDef,
-  FlagDef,
-  ArgDef,
-  OptionsSchema,
-  ArgsSchema,
-  Handler,
-  HandlerMeta,
-  ParseError,
-  CommandContext,
-  ExecResult,
-} from "./types.ts";
+export type { Handler, ParseError } from "./types.ts";

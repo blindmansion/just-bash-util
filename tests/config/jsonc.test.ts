@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripJsonComments, parseJsonc } from "../../src/config";
+import { stripJsonComments, parseJsonc } from "../../src/config/jsonc.ts";
 
 // ============================================================================
 // stripJsonComments

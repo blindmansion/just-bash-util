@@ -5,8 +5,9 @@
  * and pre-built command trees (for command/help tests).
  */
 
-import { o, f, a, command, type CommandContext, type OptionsSchema, type ArgsSchema } from "../../src/command";
-import { InMemoryFs } from "just-bash";
+import { o, f, a, command } from "../../src/command";
+import { InMemoryFs, type CommandContext } from "just-bash";
+import type { OptionsSchema, ArgsSchema } from "../../src/command/types.ts";
 
 // ============================================================================
 // Raw schemas — for parseArgs() tests (already-resolved defs)

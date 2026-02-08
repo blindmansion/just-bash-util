@@ -8,7 +8,6 @@
 
 import { describe, expectTypeOf, test } from "vitest";
 import { o, f, a, command, type Infer } from "../../src/command";
-import type { CommandContext } from "../../src/command";
 
 describe("Infer", () => {
   test("infers options and args from a root command", () => {
