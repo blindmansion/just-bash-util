@@ -1,10 +1,18 @@
 {
   "name": "just-bash-util",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI command framework, config file discovery, and path utilities for just-bash",
   "type": "module",
   "license": "MIT",
   "author": "blindmansion",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blindmansion/just-bash-util.git"
+  },
+  "homepage": "https://github.com/blindmansion/just-bash-util",
+  "bugs": {
+    "url": "https://github.com/blindmansion/just-bash-util/issues"
+  },
   "keywords": [
     "cli",
     "command",

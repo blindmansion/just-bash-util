@@ -1,11 +1,14 @@
 # just-bash-util
 
+[![npm](https://img.shields.io/npm/v/just-bash-util)](https://www.npmjs.com/package/just-bash-util)
+[![GitHub](https://img.shields.io/github/license/blindmansion/just-bash-util)](https://github.com/blindmansion/just-bash-util)
+
 CLI command framework, config file discovery, and path utilities for [just-bash](https://www.npmjs.com/package/just-bash).
 
 ## Install
 
 ```bash
-bun add just-bash-util just-bash
+npm install just-bash-util just-bash
 ```
 
 ## Modules
