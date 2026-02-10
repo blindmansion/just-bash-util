@@ -64,10 +64,54 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - `omitInherited` to exclude parent options from specific subcommands
 - `--help` / `-h` auto-generated at every level
 - `--no-<flag>` negation, `-abc` combined short flags, `--key=value` syntax
-- `--` passthrough separator
+- `--` end-of-options separator (remaining tokens become positional args and are available via `meta.passthrough`)
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
 - Automatic error handling — thrown errors in handlers are caught and returned as clean `ExecResult` with `exitCode: 1`
+
+#### Options and flags
+
+Option keys are written in camelCase and automatically converted to kebab-case for the CLI:
+
+```ts
+options: {
+  allowEmpty: f(),           // CLI: --allow-empty    handler: args.allowEmpty
+  dryRun: f().alias("n"),    // CLI: --dry-run / -n   handler: args.dryRun
+  message: o.string().alias("m"), // CLI: --message / -m  handler: args.message
+}
+```
+
+Short flags (single-dash, single-character) require `.alias()`. A single-character key like `b: f()` creates the long flag `--b`, **not** the short flag `-b`. To get `-b`, use a descriptive key with an alias:
+
+```ts
+// ✗ b: f()                    → creates --b (long flag), not -b
+// ✓ branch: f().alias("b")   → creates --branch and -b
+```
+
+#### Positional args
+
+Args are required by default. Use `.optional()` for optional args, and `.variadic()` to collect remaining positionals into an array. Chain `.optional().variadic()` for zero-or-more:
+
+```ts
+args: [
+  a.string().name("entry"),                         // required single arg
+  a.string().name("file").optional(),               // optional single arg
+  a.string().name("files").variadic(),              // required: one or more
+  a.string().name("paths").optional().variadic(),   // optional: zero or more → string[]
+]
+```
+
+#### The `--` separator
+
+The `--` token signals end-of-options. Tokens after `--` are treated as positional arguments (not parsed as flags) and are also available in `meta.passthrough`:
+
+```ts
+// mycli checkout -- README.md
+handler: (args, ctx, meta) => {
+  args.target;          // "README.md" (assigned to positional arg)
+  meta.passthrough;     // ["README.md"] (raw tokens after --)
+}
+```
 
 ### `just-bash-util/config` — Config file discovery
 
@@ -140,6 +184,15 @@ relative("/a/b/c", "/a/d"); // "../../d"
 
 parsePackageSpecifier("@vue/shared/dist"); // { name: "@vue/shared", subpath: "./dist" }
 parsePackageSpecifier("lodash/merge"); // { name: "lodash", subpath: "./merge" }
+```
+
+**`join` vs `resolve`** — `join` concatenates segments and normalizes; an absolute second argument is kept as-is (appended, not replacing). `resolve` processes right-to-left and stops at the first absolute path, like Node's `path.resolve` (but without prepending `cwd` when no absolute segment exists):
+
+```ts
+join("/repo", "/file.txt");    // "/repo/file.txt" — concatenates with /
+resolve("/repo", "/file.txt"); // "/file.txt"      — absolute segment wins
+resolve("/repo", "file.txt");  // "/repo/file.txt"
+resolve("a", "b");             // "a/b"            — stays relative (no cwd)
 ```
 
 ## Peer dependencies

@@ -53,10 +53,12 @@ export function parseArgs(
   while (i < tokens.length) {
     const token = tokens[i]!;
 
-    // -- separator: everything after goes to passthrough
+    // -- separator: end of options. Remaining tokens are positional args
+    // (and also available via meta.passthrough for raw access).
     if (token === "--") {
       i++;
       while (i < tokens.length) {
+        positionals.push(tokens[i]!);
         passthrough.push(tokens[i]!);
         i++;
       }
@@ -127,10 +129,17 @@ export function parseArgs(
         const ch = chars[j]!;
         const entry = shortMap.get(ch);
         if (!entry) {
+          // If there's a long option matching this character, suggest it.
+          // Common when users expect single-char keys to create short flags
+          // (e.g. `b: f()` creates `--b`, not `-b` — need `.alias("b")` for that).
+          const suggestions: string[] = [];
+          if (longMap.has(ch)) {
+            suggestions.push(`--${ch}`);
+          }
           errors.push({
             type: "unknown_option",
             name: `-${ch}`,
-            suggestions: [],
+            suggestions,
           });
           continue;
         }

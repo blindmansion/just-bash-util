@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseArgs } from "../../src/command";
+import type { OptionsSchema } from "../../src/command/types.ts";
 import {
   serveOptions,
   deployOptions,
@@ -248,9 +249,9 @@ describe("defaults", () => {
 // ============================================================================
 
 describe("passthrough", () => {
-  it("captures tokens after -- as passthrough", () => {
+  it("captures tokens after -- as passthrough and positionals", () => {
     const result = expectOk(
-      parseArgs(serveOptions, singleStringArg, [
+      parseArgs(serveOptions, variadicStringArgs, [
         "index.ts",
         "--port",
         "3000",
@@ -259,7 +260,8 @@ describe("passthrough", () => {
         "--watch",
       ]),
     );
-    expect(result.args.entry).toBe("index.ts");
+    // Tokens after -- are positional args (not parsed as options) AND in passthrough
+    expect(result.args.files).toEqual(["index.ts", "--inspect", "--watch"]);
     expect(result.args.port).toBe(3000);
     expect(result.passthrough).toEqual(["--inspect", "--watch"]);
   });
@@ -272,6 +274,53 @@ describe("passthrough", () => {
   it("returns empty passthrough when -- has no trailing tokens", () => {
     const result = expectOk(parseArgs(serveOptions, emptyArgs, ["--"]));
     expect(result.passthrough).toEqual([]);
+  });
+
+  it("feeds tokens after -- into positional args", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, singleStringArg, ["--", "README.md"]),
+    );
+    expect(result.args.entry).toBe("README.md");
+    expect(result.passthrough).toEqual(["README.md"]);
+  });
+
+  it("feeds tokens after -- into variadic positional args", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, variadicStringArgs, ["--", "a.ts", "b.ts"]),
+    );
+    expect(result.args.files).toEqual(["a.ts", "b.ts"]);
+    expect(result.passthrough).toEqual(["a.ts", "b.ts"]);
+  });
+
+  it("mixes pre-- positionals with post-- positionals", () => {
+    const result = expectOk(
+      parseArgs(serveOptions, variadicStringArgs, [
+        "a.ts",
+        "--port",
+        "3000",
+        "--",
+        "b.ts",
+        "c.ts",
+      ]),
+    );
+    expect(result.args.files).toEqual(["a.ts", "b.ts", "c.ts"]);
+    expect(result.args.port).toBe(3000);
+    expect(result.passthrough).toEqual(["b.ts", "c.ts"]);
+  });
+
+  it("tokens after -- are not parsed as flags", () => {
+    const result = expectOk(
+      parseArgs(serveOptions, variadicStringArgs, [
+        "--",
+        "--open",
+        "-p",
+        "3000",
+      ]),
+    );
+    // --open and -p should be treated as positional strings, not parsed as options
+    expect(result.args.files).toEqual(["--open", "-p", "3000"]);
+    expect(result.args.open).toBe(false); // flag not set
+    expect(result.passthrough).toEqual(["--open", "-p", "3000"]);
   });
 });
 
@@ -400,6 +449,30 @@ describe("edge cases", () => {
     expect(result.errors[0]).toMatchObject({
       type: "unknown_option",
       name: "-z",
+    });
+  });
+
+  it("unknown short flag suggests matching long option", () => {
+    // Schema has a "dryRun" key (long: --dry-run, short: "n").
+    // Using -d (no alias registered) should suggest --d if a "d" long option existed.
+    // More realistically: a single-char key like `b: flag()` creates --b but not -b.
+    const schemaWithSingleCharKey: OptionsSchema = {
+      b: { _kind: "flag" },
+    };
+    const result = expectFail(parseArgs(schemaWithSingleCharKey, emptyArgs, ["-b"]));
+    expect(result.errors[0]).toMatchObject({
+      type: "unknown_option",
+      name: "-b",
+      suggestions: ["--b"],
+    });
+  });
+
+  it("unknown short flag with no matching long option has empty suggestions", () => {
+    const result = expectFail(parseArgs(serveOptions, emptyArgs, ["-z"]));
+    expect(result.errors[0]).toMatchObject({
+      type: "unknown_option",
+      name: "-z",
+      suggestions: [],
     });
   });
 });
