@@ -84,7 +84,7 @@ export function parseArgs(
         if (longName.startsWith("no-")) {
           const positiveEntry = longMap.get(longName.slice(3));
           if (positiveEntry && positiveEntry.def._kind === "flag") {
-            result[positiveEntry.key] = false;
+            result[positiveEntry.key] = positiveEntry.def.counted ? 0 : false;
             i++;
             continue;
           }
@@ -101,7 +101,11 @@ export function parseArgs(
       }
 
       if (entry.def._kind === "flag") {
-        result[entry.key] = true;
+        if (entry.def.counted) {
+          result[entry.key] = ((result[entry.key] as number) || 0) + 1;
+        } else {
+          result[entry.key] = true;
+        }
         i++;
         continue;
       }
@@ -145,7 +149,11 @@ export function parseArgs(
         }
 
         if (entry.def._kind === "flag") {
-          result[entry.key] = true;
+          if (entry.def.counted) {
+            result[entry.key] = ((result[entry.key] as number) || 0) + 1;
+          } else {
+            result[entry.key] = true;
+          }
           continue;
         }
 
@@ -219,7 +227,7 @@ export function parseArgs(
   for (const [key, def] of Object.entries(options)) {
     if (result[key] === undefined) {
       if (def._kind === "flag") {
-        result[key] = def.default ?? false;
+        result[key] = def.default ?? (def.counted ? 0 : false);
       } else if (def._kind === "option") {
         // Resolution order: CLI arg (already set) > env var > default > required error
         const opt = def as OptionDef<any>;

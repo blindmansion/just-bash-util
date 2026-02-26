@@ -58,6 +58,12 @@ export const numberArg: ArgsSchema = [
   { _kind: "arg", _type: undefined as unknown as number, type: "number", name: "count", required: true },
 ];
 
+/** A schema with a counted flag: --verbose / -v */
+export const verboseOptions: OptionsSchema = {
+  verbose: { _kind: "flag", short: "v", counted: true },
+  quiet: { _kind: "flag", short: "q" },
+};
+
 /** Empty schemas */
 export const emptyOptions: OptionsSchema = {};
 export const emptyArgs: ArgsSchema = [];

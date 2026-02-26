@@ -85,6 +85,17 @@ describe("f()", () => {
   it(".default() sets boolean default", () => {
     expect(f().default(true)._def.default).toBe(true);
   });
+
+  it(".count() sets counted mode", () => {
+    expect(f().count()._def.counted).toBe(true);
+  });
+
+  it(".count() chains with other methods", () => {
+    const def = f().alias("v").describe("Verbosity").count()._def;
+    expect(def.counted).toBe(true);
+    expect(def.short).toBe("v");
+    expect(def.description).toBe("Verbosity");
+  });
 });
 
 // ============================================================================

@@ -63,7 +63,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - Subcommand nesting with automatic option inheritance
 - `omitInherited` to exclude parent options from specific subcommands
 - `--help` / `-h` auto-generated at every level
-- `--no-<flag>` negation, `-abc` combined short flags, `--key=value` syntax
+- `--no-<flag>` negation, `-abc` combined short flags, `--key=value` syntax, counted flags (`-vvv` → 3)
 - `--` end-of-options separator (remaining tokens become positional args and are available via `meta.passthrough`)
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
@@ -79,6 +79,16 @@ options: {
   dryRun: f().alias("n"),    // CLI: --dry-run / -n   handler: args.dryRun
   message: o.string().alias("m"), // CLI: --message / -m  handler: args.message
 }
+```
+
+Flags support counting mode via `.count()`. Repeated occurrences produce a number instead of a boolean — useful for verbosity levels (`-v`, `-vv`, `-vvv`):
+
+```ts
+options: {
+  verbose: f().alias("v").count().describe("Verbosity level"),
+}
+// -v → 1, -vv → 2, -vvv → 3, absent → 0
+// handler receives args.verbose as number
 ```
 
 Short flags (single-dash, single-character) require `.alias()`. A single-character key like `b: f()` creates the long flag `--b`, **not** the short flag `-b`. To get `-b`, use a descriptive key with an alias:

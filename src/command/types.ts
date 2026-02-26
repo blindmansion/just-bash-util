@@ -34,7 +34,8 @@ export interface FlagDef {
   readonly _kind: "flag";
   readonly description?: string;
   readonly short?: string;
-  readonly default?: boolean;
+  readonly default?: boolean | number;
+  readonly counted?: boolean;
 }
 
 export interface ArgDef<TOut = unknown> {

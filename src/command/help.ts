@@ -149,6 +149,7 @@ function formatOptionsTable(
 
       const descParts: string[] = [];
       if (flag.description) descParts.push(flag.description);
+      if (flag.counted) descParts.push("(counted)");
       if (flag.default !== undefined) descParts.push(`(default: ${flag.default})`);
 
       rows.push([parts.join(" "), descParts.join(" ")]);

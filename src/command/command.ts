@@ -15,7 +15,7 @@ import { formatErrors, findSuggestions } from "./errors.ts";
 type Prettify<T> = { [K in keyof T as string extends K ? never : K]: T[K] } & {};
 
 /** Builder input types — what the user passes in config */
-type OptionInput = OptionBuilder<any, any> | FlagBuilder;
+type OptionInput = OptionBuilder<any, any> | FlagBuilder<any>;
 type OptionsInput = Record<string, OptionInput>;
 type ArgsInput = readonly ArgBuilder<any, any, any>[];
 
@@ -23,6 +23,8 @@ type ArgsInput = readonly ArgBuilder<any, any, any>[];
 type InferOptionsFromInput<T extends OptionsInput> = {
   [K in keyof T]: T[K] extends OptionBuilder<infer V, any>
   ? V
+  : T[K] extends FlagBuilder<true>
+  ? number
   : T[K] extends FlagBuilder
   ? boolean
   : never;
@@ -38,17 +40,20 @@ type InferArgsFromInput<T extends ArgsInput> = {
 /** Infer invoke() options: required options mandatory, defaulted/optional/flags optional */
 type InferInvokeOptions<T extends OptionsInput> =
   & { [K in keyof T as
-      T[K] extends FlagBuilder ? never
+      T[K] extends FlagBuilder<any> ? never
       : T[K] extends OptionBuilder<infer V, infer D>
         ? [D] extends [true] ? never : undefined extends V ? never : K
         : never
     ]: T[K] extends OptionBuilder<infer V, any> ? V : never }
   & { [K in keyof T as
-      T[K] extends FlagBuilder ? K
+      T[K] extends FlagBuilder<any> ? K
       : T[K] extends OptionBuilder<infer V, infer D>
         ? [D] extends [true] ? K : undefined extends V ? K : never
         : never
-    ]?: T[K] extends OptionBuilder<infer V, any> ? V : T[K] extends FlagBuilder ? boolean : never };
+    ]?: T[K] extends OptionBuilder<infer V, any> ? V
+      : T[K] extends FlagBuilder<true> ? number
+      : T[K] extends FlagBuilder ? boolean
+      : never };
 
 /** Infer invoke() args: required args mandatory, defaulted/optional args optional */
 type InferInvokeArgs<T extends ArgsInput> =
@@ -254,10 +259,11 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       const kebab = camelToKebab(key);
 
       if (def._kind === "flag") {
-        if (value === true) {
+        if (def.counted && typeof value === "number" && value > 0) {
+          for (let n = 0; n < value; n++) tokens.push(`--${kebab}`);
+        } else if (value === true) {
           tokens.push(`--${kebab}`);
         } else if (value === false && def.default === true) {
-          // Only emit --no-<flag> when explicitly negating a default-true flag
           tokens.push(`--no-${kebab}`);
         }
       } else if (def._kind === "option") {
@@ -316,7 +322,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     for (const [key, def] of Object.entries(allOpts)) {
       if (resolved[key] === undefined) {
         if (def._kind === "flag") {
-          resolved[key] = def.default ?? false;
+          resolved[key] = def.default ?? (def.counted ? 0 : false);
         } else if (def._kind === "option") {
           if (def.default !== undefined) {
             resolved[key] = def.default;

@@ -4,6 +4,7 @@ import type { OptionsSchema } from "../../src/command/types.ts";
 import {
   serveOptions,
   deployOptions,
+  verboseOptions,
   singleStringArg,
   optionalStringArg,
   variadicStringArgs,
@@ -421,6 +422,69 @@ describe("mixed options and positionals", () => {
     );
     expect(result.args.entry).toBe("app.ts");
     expect(result.args.port).toBe(4000);
+  });
+});
+
+// ============================================================================
+// Counted flags
+// ============================================================================
+
+describe("counted flags", () => {
+  it("defaults to 0 when absent", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, []));
+    expect(result.args.verbose).toBe(0);
+  });
+
+  it("returns 1 for a single --verbose", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["--verbose"]));
+    expect(result.args.verbose).toBe(1);
+  });
+
+  it("returns 1 for a single -v", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-v"]));
+    expect(result.args.verbose).toBe(1);
+  });
+
+  it("counts repeated long flags: --verbose --verbose => 2", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["--verbose", "--verbose"]));
+    expect(result.args.verbose).toBe(2);
+  });
+
+  it("counts combined short flags: -vv => 2", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vv"]));
+    expect(result.args.verbose).toBe(2);
+  });
+
+  it("counts -vvv => 3", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vvv"]));
+    expect(result.args.verbose).toBe(3);
+  });
+
+  it("counts mixed long and short: -v --verbose => 2", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-v", "--verbose"]));
+    expect(result.args.verbose).toBe(2);
+  });
+
+  it("counts combined short + separate short: -vv -v => 3", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vv", "-v"]));
+    expect(result.args.verbose).toBe(3);
+  });
+
+  it("--no-verbose resets counted flag to 0", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vvv", "--no-verbose"]));
+    expect(result.args.verbose).toBe(0);
+  });
+
+  it("non-counted flags still produce boolean alongside counted flags", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vv", "-q"]));
+    expect(result.args.verbose).toBe(2);
+    expect(result.args.quiet).toBe(true);
+  });
+
+  it("mixes counted and non-counted in combined short flags", () => {
+    const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vqv"]));
+    expect(result.args.verbose).toBe(2);
+    expect(result.args.quiet).toBe(true);
   });
 });
 
