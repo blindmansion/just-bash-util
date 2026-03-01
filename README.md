@@ -67,6 +67,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - `--` end-of-options separator (remaining tokens become positional args and are available via `meta.passthrough`)
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
+- `transformArgs` callback to rewrite tokens before parsing — support non-standard shorthand syntax like `-5` → `-n 5`
 - Automatic error handling — thrown errors in handlers are caught and returned as clean `ExecResult` with `exitCode: 1`
 
 #### Options and flags
@@ -122,6 +123,27 @@ handler: (args, ctx, meta) => {
   meta.passthrough;     // ["README.md"] (raw tokens after --)
 }
 ```
+
+#### Token rewriting with `transformArgs`
+
+Commands can define a `transformArgs` callback to rewrite the raw token array before it reaches the parser. This is useful for supporting non-standard shorthand syntax that the parser wouldn't otherwise understand:
+
+```ts
+cli.command("log", {
+  description: "Show commit log",
+  transformArgs: (tokens) =>
+    tokens.map((t) => (/^-(\d+)$/.test(t) ? `-n${t.slice(1)}` : t)),
+  options: {
+    maxCount: o.number().alias("n").describe("Limit output to n commits"),
+  },
+  handler: (args) => {
+    // git log -5  →  tokens rewritten to -n5  →  args.maxCount === 5
+    return { stdout: `showing ${args.maxCount} commits`, stderr: "", exitCode: 0 };
+  },
+});
+```
+
+The callback receives a mutable copy of the tokens and returns the rewritten array. It runs only in `execute()` (token-based invocation) — `invoke()` takes typed args directly, so there's nothing to transform.
 
 ### `just-bash-util/config` — Config file discovery
 

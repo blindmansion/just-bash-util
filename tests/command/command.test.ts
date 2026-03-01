@@ -449,3 +449,80 @@ describe("execute() error handling", () => {
     expect(result.stderr).toBe("nested boom");
   });
 });
+
+// ============================================================================
+// transformArgs
+// ============================================================================
+
+describe("transformArgs", () => {
+  it("rewrites tokens before parsing", async () => {
+    const cli = command("git", { description: "Git" });
+    cli.command("log", {
+      description: "Show log",
+      transformArgs: (tokens) =>
+        tokens.map((t) => (/^-(\d+)$/.test(t) ? `-n${t.slice(1)}` : t)),
+      options: {
+        maxCount: o.number().alias("n"),
+      },
+      handler: (args) => ({
+        stdout: String(args.maxCount),
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    const result = await cli.execute(["log", "-5"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("5");
+  });
+
+  it("does not affect parsing when absent", async () => {
+    const cli = command("test", {
+      description: "Test",
+      options: { name: o.string().alias("n") },
+      handler: (args) => ({
+        stdout: String(args.name),
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    const result = await cli.execute(["-n", "hello"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("hello");
+  });
+
+  it("receives a copy of the tokens (does not mutate originals)", async () => {
+    const original = ["-5"];
+    const cli = command("test", {
+      description: "Test",
+      transformArgs: (tokens) => {
+        tokens[0] = "-n5";
+        return tokens;
+      },
+      options: { maxCount: o.number().alias("n") },
+      handler: (args) => ({
+        stdout: String(args.maxCount),
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    await cli.execute(original, createTestContext());
+    expect(original[0]).toBe("-5");
+  });
+
+  it("works on root commands with handlers", async () => {
+    const cli = command("test", {
+      description: "Test",
+      transformArgs: (tokens) =>
+        tokens.map((t) => (t === "+verbose" ? "--verbose" : t)),
+      options: { verbose: f() },
+      handler: (args) => ({
+        stdout: String(args.verbose),
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    const result = await cli.execute(["+verbose"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("true");
+  });
+});

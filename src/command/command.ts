@@ -98,6 +98,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
   readonly examples: readonly string[];
   readonly omitInherited: ReadonlySet<string>;
   readonly handler?: Handler<any>;
+  readonly transformArgs?: (tokens: string[]) => string[];
   readonly children = new Map<string, Command<any, any>>();
   parent?: Command<any, any>;
 
@@ -115,6 +116,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     examples: readonly string[],
     omitInherited: ReadonlySet<string>,
     handler: Handler<any> | undefined,
+    transformArgs?: (tokens: string[]) => string[],
   ) {
     this.name = name;
     this.description = description;
@@ -123,6 +125,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     this.examples = examples;
     this.omitInherited = omitInherited;
     this.handler = handler;
+    this.transformArgs = transformArgs;
   }
 
   // --------------------------------------------------------------------------
@@ -142,6 +145,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       readonly args?: TArgs;
       readonly examples?: readonly string[];
       readonly omitInherited?: TOmit;
+      readonly transformArgs?: (tokens: string[]) => string[];
       readonly handler?: Handler<
         Prettify<
           Omit<THandlerArgs, TOmit[number]> &
@@ -163,6 +167,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       config.examples ?? [],
       omitSet,
       config.handler as Handler<any> | undefined,
+      config.transformArgs,
     );
     child.parent = this;
     this.children.set(name, child);
@@ -391,7 +396,8 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
 
     // Has a handler — parse remaining tokens and run it
     if (this.handler) {
-      const parsed = parseArgs(this.allOptions, this.args, [...tokens], env);
+      const effective = this.transformArgs ? this.transformArgs([...tokens]) : [...tokens];
+      const parsed = parseArgs(this.allOptions, this.args, effective, env);
       if (!parsed.ok) {
         return { stdout: "", stderr: formatErrors(parsed.errors), exitCode: 1 };
       }
@@ -434,6 +440,7 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
     readonly options?: TOpts;
     readonly args?: TArgs;
     readonly examples?: readonly string[];
+    readonly transformArgs?: (tokens: string[]) => string[];
     readonly handler?: Handler<
       Prettify<InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>
     >;
@@ -450,6 +457,7 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
     config.examples ?? [],
     new Set(),
     config.handler as Handler<any> | undefined,
+    config.transformArgs,
   ) as any;
 }
 
