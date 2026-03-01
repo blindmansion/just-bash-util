@@ -250,7 +250,7 @@ describe("defaults", () => {
 // ============================================================================
 
 describe("passthrough", () => {
-  it("captures tokens after -- as passthrough and positionals", () => {
+  it("keeps pre-- positionals and sends post-- tokens to passthrough only", () => {
     const result = expectOk(
       parseArgs(serveOptions, variadicStringArgs, [
         "index.ts",
@@ -261,8 +261,7 @@ describe("passthrough", () => {
         "--watch",
       ]),
     );
-    // Tokens after -- are positional args (not parsed as options) AND in passthrough
-    expect(result.args.files).toEqual(["index.ts", "--inspect", "--watch"]);
+    expect(result.args.files).toEqual(["index.ts"]);
     expect(result.args.port).toBe(3000);
     expect(result.passthrough).toEqual(["--inspect", "--watch"]);
   });
@@ -277,23 +276,29 @@ describe("passthrough", () => {
     expect(result.passthrough).toEqual([]);
   });
 
-  it("feeds tokens after -- into positional args", () => {
-    const result = expectOk(
+  it("does not feed tokens after -- into positional args", () => {
+    const result = expectFail(
       parseArgs(emptyOptions, singleStringArg, ["--", "README.md"]),
     );
-    expect(result.args.entry).toBe("README.md");
-    expect(result.passthrough).toEqual(["README.md"]);
+    expect(result.errors[0]).toMatchObject({
+      type: "missing_required",
+      name: "entry",
+      kind: "arg",
+    });
   });
 
-  it("feeds tokens after -- into variadic positional args", () => {
-    const result = expectOk(
+  it("does not feed tokens after -- into variadic positional args", () => {
+    const result = expectFail(
       parseArgs(emptyOptions, variadicStringArgs, ["--", "a.ts", "b.ts"]),
     );
-    expect(result.args.files).toEqual(["a.ts", "b.ts"]);
-    expect(result.passthrough).toEqual(["a.ts", "b.ts"]);
+    expect(result.errors[0]).toMatchObject({
+      type: "missing_required",
+      name: "files",
+      kind: "arg",
+    });
   });
 
-  it("mixes pre-- positionals with post-- positionals", () => {
+  it("pre-- positionals stay in args, post-- tokens go only to passthrough", () => {
     const result = expectOk(
       parseArgs(serveOptions, variadicStringArgs, [
         "a.ts",
@@ -304,23 +309,22 @@ describe("passthrough", () => {
         "c.ts",
       ]),
     );
-    expect(result.args.files).toEqual(["a.ts", "b.ts", "c.ts"]);
+    expect(result.args.files).toEqual(["a.ts"]);
     expect(result.args.port).toBe(3000);
     expect(result.passthrough).toEqual(["b.ts", "c.ts"]);
   });
 
-  it("tokens after -- are not parsed as flags", () => {
+  it("tokens after -- are not parsed as flags or positionals", () => {
     const result = expectOk(
-      parseArgs(serveOptions, variadicStringArgs, [
+      parseArgs(serveOptions, optionalVariadicStringArgs, [
         "--",
         "--open",
         "-p",
         "3000",
       ]),
     );
-    // --open and -p should be treated as positional strings, not parsed as options
-    expect(result.args.files).toEqual(["--open", "-p", "3000"]);
-    expect(result.args.open).toBe(false); // flag not set
+    expect(result.args.packages).toEqual([]);
+    expect(result.args.open).toBe(false);
     expect(result.passthrough).toEqual(["--open", "-p", "3000"]);
   });
 });
@@ -485,6 +489,44 @@ describe("counted flags", () => {
     const result = expectOk(parseArgs(verboseOptions, emptyArgs, ["-vqv"]));
     expect(result.args.verbose).toBe(2);
     expect(result.args.quiet).toBe(true);
+  });
+});
+
+// ============================================================================
+// Bug reproduction: -- separator should not feed positional args
+// ============================================================================
+
+describe("-- separator stops positional consumption", () => {
+  it("optional single arg: checkout -- foo.txt", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, optionalStringArg, ["--", "foo.txt"]),
+    );
+    expect(result.args.file).toBeUndefined();
+    expect(result.passthrough).toEqual(["foo.txt"]);
+  });
+
+  it("optional variadic arg: log -- README.md", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, optionalVariadicStringArgs, ["--", "README.md"]),
+    );
+    expect(result.args.packages).toEqual([]);
+    expect(result.passthrough).toEqual(["README.md"]);
+  });
+
+  it("positional before -- stays positional, tokens after -- go to passthrough only", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, optionalStringArg, ["main", "--", "README.md"]),
+    );
+    expect(result.args.file).toBe("main");
+    expect(result.passthrough).toEqual(["README.md"]);
+  });
+
+  it("variadic positional before -- stays positional, tokens after -- go to passthrough only", () => {
+    const result = expectOk(
+      parseArgs(emptyOptions, optionalVariadicStringArgs, ["lodash", "nanoid", "--", "README.md"]),
+    );
+    expect(result.args.packages).toEqual(["lodash", "nanoid"]);
+    expect(result.passthrough).toEqual(["README.md"]);
   });
 });
 

@@ -64,7 +64,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - `omitInherited` to exclude parent options from specific subcommands
 - `--help` / `-h` auto-generated at every level
 - `--no-<flag>` negation, `-abc` combined short flags, `--key=value` syntax, counted flags (`-vvv` → 3)
-- `--` end-of-options separator (remaining tokens become positional args and are available via `meta.passthrough`)
+- `--` end-of-options separator (remaining tokens go to `meta.passthrough` without consuming positional args)
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
 - `transformArgs` callback to rewrite tokens before parsing — support non-standard shorthand syntax like `-5` → `-n 5`
@@ -114,13 +114,19 @@ args: [
 
 #### The `--` separator
 
-The `--` token signals end-of-options. Tokens after `--` are treated as positional arguments (not parsed as flags) and are also available in `meta.passthrough`:
+The `--` token stops all parsing. Tokens after `--` go exclusively into `meta.passthrough` — they are **not** consumed as positional args or parsed as flags. Positional args must appear before `--`:
 
 ```ts
+// mycli checkout main -- README.md
+handler: (args, ctx, meta) => {
+  args.target;          // "main" (positional arg before --)
+  meta.passthrough;     // ["README.md"] (tokens after --)
+}
+
 // mycli checkout -- README.md
 handler: (args, ctx, meta) => {
-  args.target;          // "README.md" (assigned to positional arg)
-  meta.passthrough;     // ["README.md"] (raw tokens after --)
+  args.target;          // undefined (no positional before --)
+  meta.passthrough;     // ["README.md"]
 }
 ```
 

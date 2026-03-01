@@ -53,12 +53,11 @@ export function parseArgs(
   while (i < tokens.length) {
     const token = tokens[i]!;
 
-    // -- separator: end of options. Remaining tokens are positional args
-    // (and also available via meta.passthrough for raw access).
+    // -- separator: stop option and positional parsing. Remaining tokens
+    // go exclusively into passthrough (accessible via meta.passthrough).
     if (token === "--") {
       i++;
       while (i < tokens.length) {
-        positionals.push(tokens[i]!);
         passthrough.push(tokens[i]!);
         i++;
       }
