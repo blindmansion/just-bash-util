@@ -68,6 +68,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 - Environment variable fallbacks for options
 - Levenshtein-based "did you mean?" suggestions for typos
 - `transformArgs` callback to rewrite tokens before parsing — support non-standard shorthand syntax like `-5` → `-n 5`
+- `defaultSubcommand` to name a child as the fallback for bare invocations — supports "dual mode" commands like `git stash` / `git remote`
 - Automatic error handling — thrown errors in handlers are caught and returned as clean `ExecResult` with `exitCode: 1`
 
 #### Options and flags
@@ -150,6 +151,21 @@ cli.command("log", {
 ```
 
 The callback receives a mutable copy of the tokens and returns the rewritten array. It runs only in `execute()` (token-based invocation) — `invoke()` takes typed args directly, so there's nothing to transform.
+
+#### Default subcommand
+
+Commands with a "dual mode" pattern (e.g. `git stash` implicitly pushes, `git remote` lists remotes) can name a child as the fallback for bare invocations. Explicit subcommands still route normally, and typos still get "did you mean?" suggestions:
+
+```ts
+const stash = cli.command("stash", {
+  description: "Stash changes",
+  defaultSubcommand: "push",  // bare "stash" or "stash -m wip" → routes to push
+});
+stash.command("push", { /* options, handler */ });
+stash.command("pop", { /* args, handler */ });
+```
+
+`defaultSubcommand` and `handler` are mutually exclusive.
 
 ### `just-bash-util/config` — Config file discovery
 

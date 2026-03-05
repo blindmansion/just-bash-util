@@ -21,6 +21,7 @@ export interface HelpableCommand {
   readonly inheritedOptions: OptionsSchema;
   readonly children: Map<string, HelpableCommand>;
   readonly handler?: unknown;
+  readonly defaultSubcommand?: string;
 }
 
 // ============================================================================
@@ -65,7 +66,9 @@ export function generateHelp(cmd: HelpableCommand): string {
     lines.push("Commands:");
     const entries: [string, string][] = [];
     for (const [name, child] of cmd.children) {
-      entries.push([name, child.description || ""]);
+      const desc = child.description || "";
+      const suffix = cmd.defaultSubcommand === name ? " (default)" : "";
+      entries.push([name, desc + suffix]);
     }
     const maxNameLen = Math.max(...entries.map(([name]) => name.length));
     for (const [name, desc] of entries) {

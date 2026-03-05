@@ -526,3 +526,175 @@ describe("transformArgs", () => {
     expect(result.stdout).toBe("true");
   });
 });
+
+// ============================================================================
+// defaultSubcommand
+// ============================================================================
+
+describe("defaultSubcommand", () => {
+  function createStashCli() {
+    const git = command("git", { description: "Git" });
+    const stash = git.command("stash", {
+      description: "Stash changes in a dirty working directory",
+      defaultSubcommand: "push",
+    });
+    stash.command("push", {
+      description: "Save changes to the stash",
+      options: {
+        message: o.string().alias("m").describe("Stash message"),
+        includeUntracked: f().alias("u").describe("Include untracked files"),
+      },
+      handler: (args) => ({
+        stdout: `pushed${args.message ? `: ${args.message}` : ""}${args.includeUntracked ? " (with untracked)" : ""}`,
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    stash.command("pop", {
+      description: "Remove and apply a stash entry",
+      args: [a.string().name("ref").optional().describe("Stash ref")],
+      handler: (args) => ({
+        stdout: `popped ${args.ref ?? "stash@{0}"}`,
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    stash.command("list", {
+      description: "List stash entries",
+      handler: () => ({
+        stdout: "stash@{0}: WIP on main",
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    return git;
+  }
+
+  it("routes bare invocation to the default subcommand", async () => {
+    const git = createStashCli();
+    const result = await git.execute(["stash"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("pushed");
+  });
+
+  it("routes flag-only invocation to the default subcommand", async () => {
+    const git = createStashCli();
+    const result = await git.execute(["stash", "-m", "wip", "-u"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("pushed: wip (with untracked)");
+  });
+
+  it("still routes explicit subcommand names normally", async () => {
+    const git = createStashCli();
+    const result = await git.execute(["stash", "pop"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("popped stash@{0}");
+  });
+
+  it("still routes explicit subcommand names with args", async () => {
+    const git = createStashCli();
+    const result = await git.execute(["stash", "pop", "stash@{2}"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("popped stash@{2}");
+  });
+
+  it("shows typo suggestions for mistyped subcommands", async () => {
+    const git = createStashCli();
+    const result = await git.execute(["stash", "psh"], createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unknown command");
+    expect(result.stderr).toContain("push");
+  });
+
+  it("shows help with (default) annotation", async () => {
+    const git = createStashCli();
+    const result = await git.execute(["stash", "--help"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("(default)");
+    expect(result.stdout).toContain("push");
+    expect(result.stdout).toContain("pop");
+    expect(result.stdout).toContain("list");
+  });
+
+  it("throws when combined with a handler on the child command() method", () => {
+    const root = command("root", { description: "Root" });
+    expect(() =>
+      root.command("bad", {
+        description: "Bad",
+        defaultSubcommand: "sub",
+        handler: () => ({ stdout: "", stderr: "", exitCode: 0 }),
+      }),
+    ).toThrow("cannot have both a handler and a defaultSubcommand");
+  });
+
+  it("throws when combined with a handler on the factory function", () => {
+    expect(() =>
+      command("bad", {
+        description: "Bad",
+        defaultSubcommand: "sub",
+        handler: () => ({ stdout: "", stderr: "", exitCode: 0 }),
+      }),
+    ).toThrow("cannot have both a handler and a defaultSubcommand");
+  });
+
+  it("returns error when defaultSubcommand names a nonexistent child", async () => {
+    const cli = command("test", {
+      description: "Test",
+      defaultSubcommand: "nonexistent",
+    });
+    cli.command("real", {
+      description: "Real",
+      handler: () => ({ stdout: "ok", stderr: "", exitCode: 0 }),
+    });
+    const result = await cli.execute([], createTestContext());
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('defaultSubcommand "nonexistent"');
+    expect(result.stderr).toContain("real");
+  });
+
+  it("works with inherited options passed through to default subcommand", async () => {
+    const cli = command("cli", { description: "CLI" });
+    const remote = cli.command("remote", {
+      description: "Manage remotes",
+      options: {
+        verbose: f().alias("v").describe("Verbose output"),
+      },
+      defaultSubcommand: "list",
+    });
+    remote.command("list", {
+      description: "List remotes",
+      handler: (args) => ({
+        stdout: args.verbose ? "origin\thttps://github.com/..." : "origin",
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    remote.command("add", {
+      description: "Add a remote",
+      args: [
+        a.string().name("name").describe("Remote name"),
+        a.string().name("url").describe("Remote URL"),
+      ],
+      handler: (args) => ({
+        stdout: `added ${args.name} -> ${args.url}`,
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+
+    // Bare invocation → default "list"
+    const bare = await cli.execute(["remote"], createTestContext());
+    expect(bare.exitCode).toBe(0);
+    expect(bare.stdout).toBe("origin");
+
+    // Flag-only → default "list" with inherited verbose
+    const verbose = await cli.execute(["remote", "-v"], createTestContext());
+    expect(verbose.exitCode).toBe(0);
+    expect(verbose.stdout).toContain("https://github.com/");
+
+    // Explicit subcommand still works
+    const add = await cli.execute(["remote", "add", "upstream", "https://upstream.example"], createTestContext());
+    expect(add.exitCode).toBe(0);
+    expect(add.stdout).toBe("added upstream -> https://upstream.example");
+  });
+});

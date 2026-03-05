@@ -99,6 +99,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
   readonly omitInherited: ReadonlySet<string>;
   readonly handler?: Handler<any>;
   readonly transformArgs?: (tokens: string[]) => string[];
+  readonly defaultSubcommand?: string;
   readonly children = new Map<string, Command<any, any>>();
   parent?: Command<any, any>;
 
@@ -117,6 +118,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     omitInherited: ReadonlySet<string>,
     handler: Handler<any> | undefined,
     transformArgs?: (tokens: string[]) => string[],
+    defaultSubcommand?: string,
   ) {
     this.name = name;
     this.description = description;
@@ -126,6 +128,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     this.omitInherited = omitInherited;
     this.handler = handler;
     this.transformArgs = transformArgs;
+    this.defaultSubcommand = defaultSubcommand;
   }
 
   // --------------------------------------------------------------------------
@@ -146,6 +149,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       readonly examples?: readonly string[];
       readonly omitInherited?: TOmit;
       readonly transformArgs?: (tokens: string[]) => string[];
+      readonly defaultSubcommand?: string;
       readonly handler?: Handler<
         Prettify<
           Omit<THandlerArgs, TOmit[number]> &
@@ -158,6 +162,11 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     Prettify<Omit<THandlerArgs, TOmit[number]> & InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>,
     Prettify<Omit<TInvokeArgs, TOmit[number]> & InferInvokeOptions<TOpts> & InferInvokeArgs<TArgs>>
   > {
+    if (config.handler && config.defaultSubcommand) {
+      throw new Error(
+        `Command "${name}" cannot have both a handler and a defaultSubcommand.`,
+      );
+    }
     const omitSet = new Set(config.omitInherited ?? []);
     const child = new Command(
       name,
@@ -168,6 +177,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       omitSet,
       config.handler as Handler<any> | undefined,
       config.transformArgs,
+      config.defaultSubcommand,
     );
     child.parent = this;
     this.children.set(name, child);
@@ -409,7 +419,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       }
     }
 
-    // No handler — check for unknown subcommand
+    // No handler — check for unknown subcommand (non-flag first token)
     if (firstToken && !firstToken.startsWith("-")) {
       const suggestions = findSuggestions(firstToken, [...this.children.keys()]);
       return {
@@ -423,7 +433,21 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
       };
     }
 
-    // Bare invocation, no handler — show help
+    // Default subcommand — route bare invocations (and flag-only tokens) to the named child
+    if (this.defaultSubcommand) {
+      const child = this.children.get(this.defaultSubcommand);
+      if (!child) {
+        return {
+          stdout: "",
+          stderr: `defaultSubcommand "${this.defaultSubcommand}" does not match any child of "${this.name}". `
+            + `Available: ${[...this.children.keys()].join(", ") || "(none)"}`,
+          exitCode: 1,
+        };
+      }
+      return child.execute(tokens, ctx);
+    }
+
+    // Bare invocation, no handler, no default — show help
     return { stdout: generateHelp(this), stderr: "", exitCode: 0 };
   }
 }
@@ -441,6 +465,7 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
     readonly args?: TArgs;
     readonly examples?: readonly string[];
     readonly transformArgs?: (tokens: string[]) => string[];
+    readonly defaultSubcommand?: string;
     readonly handler?: Handler<
       Prettify<InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>
     >;
@@ -449,6 +474,11 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
   Prettify<InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>,
   Prettify<InferInvokeOptions<TOpts> & InferInvokeArgs<TArgs>>
 > {
+  if (config.handler && config.defaultSubcommand) {
+    throw new Error(
+      `Command "${name}" cannot have both a handler and a defaultSubcommand.`,
+    );
+  }
   return new Command(
     name,
     config.description,
@@ -458,6 +488,7 @@ export function command<TOpts extends OptionsInput = {}, const TArgs extends Arg
     new Set(),
     config.handler as Handler<any> | undefined,
     config.transformArgs,
+    config.defaultSubcommand,
   ) as any;
 }
 
