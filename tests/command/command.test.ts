@@ -45,6 +45,50 @@ describe("command tree building", () => {
     expect(migrate.parent?.name).toBe("db");
     expect(migrate.parent?.parent?.name).toBe("mycli");
   });
+
+  it("attaches a pre-existing command as a subcommand", () => {
+    const cli = command("mycli", { description: "CLI" });
+    const sub = command("ping", {
+      description: "Health check",
+      handler: () => ({ stdout: "pong", stderr: "", exitCode: 0 }),
+    });
+    cli.command(sub);
+    expect(cli.children.has("ping")).toBe(true);
+    expect(cli.children.get("ping")).toBe(sub);
+    expect(sub.parent).toBe(cli);
+  });
+
+  it("detaches from old parent when re-attaching", () => {
+    const parent1 = command("p1", { description: "Parent 1" });
+    const parent2 = command("p2", { description: "Parent 2" });
+    const child = command("shared", {
+      description: "Shared",
+      handler: () => ({ stdout: "ok", stderr: "", exitCode: 0 }),
+    });
+    parent1.command(child);
+    expect(parent1.children.has("shared")).toBe(true);
+
+    parent2.command(child);
+    expect(parent1.children.has("shared")).toBe(false);
+    expect(parent2.children.has("shared")).toBe(true);
+    expect(child.parent).toBe(parent2);
+  });
+
+  it("attaches a pre-existing subtree and preserves its children", () => {
+    const cli = command("mycli", { description: "CLI" });
+    const db = command("db", { description: "Database" });
+    db.command("migrate", {
+      description: "Run migrations",
+      handler: () => ({ stdout: "migrated", stderr: "", exitCode: 0 }),
+    });
+    db.command("seed", {
+      description: "Seed database",
+      handler: () => ({ stdout: "seeded", stderr: "", exitCode: 0 }),
+    });
+    cli.command(db);
+    expect(cli.children.get("db")!.children.has("migrate")).toBe(true);
+    expect(cli.children.get("db")!.children.has("seed")).toBe(true);
+  });
 });
 
 // ============================================================================
@@ -360,6 +404,64 @@ describe("execute() with deep nesting", () => {
     const result = await root.execute(["cloud", "storage"], createTestContext());
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("upload");
+  });
+});
+
+// ============================================================================
+// execute() — pre-existing command attachment
+// ============================================================================
+
+describe("execute() with pre-existing commands", () => {
+  it("routes to an attached pre-existing command", async () => {
+    const cli = command("mycli", { description: "CLI" });
+    const ping = command("ping", {
+      description: "Health check",
+      handler: () => ({ stdout: "pong", stderr: "", exitCode: 0 }),
+    });
+    cli.command(ping);
+    const result = await cli.execute(["ping"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("pong");
+  });
+
+  it("inherits parent options after attachment", async () => {
+    const cli = command("mycli", {
+      description: "CLI",
+      options: { verbose: f().alias("v").describe("Verbose") },
+    });
+    const sub = command("info", {
+      description: "Show info",
+      handler: (args: any) => ({
+        stdout: args.verbose ? "verbose info" : "info",
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+    cli.command(sub);
+    const result = await cli.execute(["info", "-v"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("verbose info");
+  });
+
+  it("routes through an attached subtree", async () => {
+    const cli = command("mycli", { description: "CLI" });
+    const db = command("db", { description: "Database" });
+    db.command("migrate", {
+      description: "Run migrations",
+      handler: () => ({ stdout: "migrated", stderr: "", exitCode: 0 }),
+    });
+    cli.command(db);
+    const result = await cli.execute(["db", "migrate"], createTestContext());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("migrated");
+  });
+
+  it("updates fullPath after attachment", () => {
+    const cli = command("mycli", { description: "CLI" });
+    const sub = command("deploy", { description: "Deploy" });
+    expect(sub.fullPath).toBe("deploy");
+    cli.command(sub);
+    expect(sub.fullPath).toBe("mycli deploy");
   });
 });
 

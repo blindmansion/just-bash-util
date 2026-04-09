@@ -60,6 +60,7 @@ await serve.invoke({ port: 8080, entry: "app.ts" }, ctx);
 
 **Features:**
 
+- Composable command trees — attach pre-existing `Command` instances with `.command(child)`
 - Subcommand nesting with automatic option inheritance
 - `omitInherited` to exclude parent options from specific subcommands
 - `--help` / `-h` auto-generated at every level
@@ -166,6 +167,40 @@ stash.command("pop", { /* args, handler */ });
 ```
 
 `defaultSubcommand` and `handler` are mutually exclusive.
+
+#### Attaching pre-existing commands
+
+`.command()` also accepts an existing `Command` instance. This lets you define commands independently and attach them later — useful for splitting a CLI across files, building reusable command modules, or composing subtrees from libraries:
+
+```ts
+import { command, o, f, a } from "just-bash-util/command";
+
+// Defined independently (e.g. in another file or package)
+const lint = command("lint", {
+  description: "Run linters",
+  options: { fix: f().describe("Auto-fix problems") },
+  handler: (args) => ({ stdout: args.fix ? "fixed" : "checked", stderr: "", exitCode: 0 }),
+});
+
+// Attach to the main CLI
+const cli = command("mycli", { description: "My CLI" });
+cli.command(lint);
+// mycli lint --fix  →  "fixed"
+```
+
+Subtrees with children are attached as a unit — the entire tree comes along:
+
+```ts
+const db = command("db", { description: "Database operations" });
+db.command("migrate", { description: "Run migrations", handler: /* ... */ });
+db.command("seed", { description: "Seed data", handler: /* ... */ });
+
+cli.command(db);
+// mycli db migrate
+// mycli db seed
+```
+
+If a command is already attached to another parent, it is automatically detached from the old parent first.
 
 ### `just-bash-util/config` — Config file discovery
 

@@ -238,7 +238,57 @@ storage.command("list", {
 });
 
 // ============================================================================
-// 6. Minimal command (no options, no args)
+// 6. Attaching pre-existing commands
+//
+//    Commands can be created standalone and attached later.
+//    Useful for splitting a large CLI across files, building reusable
+//    command modules, or composing subtrees from libraries.
+// ============================================================================
+
+// Created independently — no parent yet
+const lint = command("lint", {
+  description: "Run linters",
+  options: {
+    fix: f().describe("Auto-fix problems"),
+    quiet: f().alias("q").describe("Only report errors"),
+  },
+  args: [
+    a.string().name("paths").optional().variadic().describe("Files or directories to lint"),
+  ],
+  handler: (args) => {
+    const lines = [`Linting ${args.paths?.join(", ") ?? "."}`];
+    if (args.fix) lines.push("(auto-fix enabled)");
+    if (args.quiet) lines.push("(quiet mode)");
+    return { stdout: lines.join("\n"), stderr: "", exitCode: 0 };
+  },
+});
+
+// Attach it — lint is now a subcommand of cli
+cli.command(lint);
+
+// Pre-existing subtrees work too — children come along for the ride
+const ci = command("ci", { description: "CI/CD operations" });
+ci.command("status", {
+  description: "Show pipeline status",
+  handler: () => ({ stdout: "Pipeline: passing", stderr: "", exitCode: 0 }),
+});
+ci.command("run", {
+  description: "Trigger a pipeline run",
+  options: {
+    branch: o.string().default("main").alias("b").describe("Branch to build"),
+  },
+  handler: (args) => ({
+    stdout: `Triggered build on ${args.branch}`,
+    stderr: "",
+    exitCode: 0,
+  }),
+});
+
+// Attach the whole subtree at once
+cli.command(ci);
+
+// ============================================================================
+// 7. Minimal command (no options, no args)
 // ============================================================================
 
 cli.command("ping", {
@@ -247,7 +297,7 @@ cli.command("ping", {
 });
 
 // ============================================================================
-// 7. Programmatic invocation — invoke() with typed args
+// 8. Programmatic invocation — invoke() with typed args
 //
 //    Hover over `serve.invoke(...)` to see the typed signature.
 //    Required options/args are mandatory; defaulted/optional ones are optional.
@@ -305,6 +355,11 @@ await run(["db", "seed"]);                                // same — no --conne
 // --- Deeply nested with accumulated options ---
 await run(["cloud", "storage", "upload", "photo.jpg", "images/photo.jpg", "-b", "my-bucket", "-r", "eu-west-1"]);
 await run(["cloud", "storage", "list", "-b", "my-bucket", "--prefix", "images/", "--limit", "10"]);
+
+// --- Pre-existing commands ---
+await run(["lint", "--fix", "src/"]);
+await run(["ci", "status"]);
+await run(["ci", "run", "-b", "feature/new-api"]);
 
 // --- Passthrough ---
 await run(["serve", "index.ts", "--", "--inspect", "--watch"]);

@@ -135,7 +135,10 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
   // Tree building
   // --------------------------------------------------------------------------
 
-  /** Add a subcommand. Returns the child command for further nesting. */
+  /** Attach a pre-existing command as a subcommand. */
+  command<TChild extends Command<any, any>>(child: TChild): TChild;
+
+  /** Add a subcommand by config. Returns the child command for further nesting. */
   command<
     TOpts extends OptionsInput = {},
     const TArgs extends ArgsInput = [],
@@ -161,13 +164,26 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
   ): Command<
     Prettify<Omit<THandlerArgs, TOmit[number]> & InferOptionsFromInput<TOpts> & InferArgsFromInput<TArgs>>,
     Prettify<Omit<TInvokeArgs, TOmit[number]> & InferInvokeOptions<TOpts> & InferInvokeArgs<TArgs>>
-  > {
+  >;
+
+  command(nameOrChild: string | Command<any, any>, config?: any): any {
+    if (nameOrChild instanceof Command) {
+      const child = nameOrChild;
+      if (child.parent) {
+        child.parent.children.delete(child.name);
+      }
+      child.parent = this;
+      this.children.set(child.name, child);
+      return child;
+    }
+
+    const name = nameOrChild;
     if (config.handler && config.defaultSubcommand) {
       throw new Error(
         `Command "${name}" cannot have both a handler and a defaultSubcommand.`,
       );
     }
-    const omitSet = new Set(config.omitInherited ?? []);
+    const omitSet = new Set<string>(config.omitInherited ?? []);
     const child = new Command(
       name,
       config.description,
@@ -181,7 +197,7 @@ export class Command<THandlerArgs extends object = {}, TInvokeArgs extends objec
     );
     child.parent = this;
     this.children.set(name, child);
-    return child as any;
+    return child;
   }
 
   // --------------------------------------------------------------------------
